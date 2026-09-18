@@ -4,7 +4,9 @@ import { ChatConsole } from './components/ChatConsole';
 import { FirestoreConsole } from './components/FirestoreConsole';
 import { UnderwritingInspector } from './components/UnderwritingInspector';
 import { ArchitectureModal } from './components/ArchitectureModal';
+import { DriveExplorer } from './components/DriveExplorer';
 import { ChatMessage, EligibilityRule, ProcessState } from './types';
+import { DriveFile } from './services/driveService';
 import {
   Building2,
   Database,
@@ -14,10 +16,11 @@ import {
   FileCheck,
   AlertTriangle,
   RotateCcw,
+  FolderOpen,
 } from 'lucide-react';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'agent' | 'firestore' | 'underwriting'>('agent');
+  const [activeTab, setActiveTab] = useState<'agent' | 'drive' | 'firestore' | 'underwriting'>('agent');
   const [activeLoanId, setActiveLoanId] = useState<string>('SBL-2025-02142');
   const [processes, setProcesses] = useState<ProcessState[]>([]);
   const [rules, setRules] = useState<EligibilityRule[]>([]);
@@ -30,7 +33,7 @@ export default function App() {
       id: 'init-1',
       role: 'agent',
       content:
-        "Welcome to Cymbal Bank's Small Business Loan Processing System.\n\nI am the root Orchestrator coordinating 4 specialized sub-agents:\n1. DocumentExtractionAgent — Multimodal PDF extraction\n2. UnderwritingAgent — Cymbal Bank records & 5 lending eligibility rules\n3. PricingAgent — Risk-based interest rates & amortization terms\n4. LoanDecisionAgent — Human-in-the-Loop decision finalization\n\nChoose a sample application below to begin:",
+        "Welcome to Yataí Finance's Small Business Loan Processing System.\n\nI am the root Orchestrator coordinating 4 specialized sub-agents:\n1. DocumentExtractionAgent — Multimodal PDF extraction\n2. UnderwritingAgent — Yataí Finance records & 5 lending eligibility rules\n3. PricingAgent — Risk-based interest rates & amortization terms\n4. LoanDecisionAgent — Human-in-the-Loop decision finalization\n\nChoose a sample application below to begin:",
       timestamp: new Date().toISOString(),
     },
   ]);
@@ -189,6 +192,13 @@ export default function App() {
     handleSendMessage(`Resume processing for ${loanId}`);
   };
 
+  const handleSelectDriveFileForExtraction = (file: DriveFile) => {
+    setActiveTab('agent');
+    handleSendMessage(
+      `Process loan application document "${file.name}" imported from Google Drive (File ID: ${file.id}) for loan ${activeLoanId}`
+    );
+  };
+
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col font-sans">
       {/* Top Navigation Header */}
@@ -201,7 +211,7 @@ export default function App() {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-base font-bold text-slate-900 leading-none">
-                  Cymbal Bank
+                  Yataí Finance
                 </h1>
                 <span className="text-xs px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-medium border border-blue-200">
                   Small Business Loan Agent
@@ -270,6 +280,19 @@ export default function App() {
 
           <button
             type="button"
+            onClick={() => setActiveTab('drive')}
+            className={`py-3 flex items-center gap-2 border-b-2 transition-colors ${
+              activeTab === 'drive'
+                ? 'border-blue-600 text-blue-600 font-semibold'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <FolderOpen className="w-4 h-4" />
+            Google Drive Files
+          </button>
+
+          <button
+            type="button"
             onClick={() => setActiveTab('firestore')}
             className={`py-3 flex items-center gap-2 border-b-2 transition-colors ${
               activeTab === 'firestore'
@@ -304,7 +327,11 @@ export default function App() {
         {activeTab === 'agent' && (
           <div className="space-y-6">
             {/* Top Workflow Status Banner */}
-            <AgentPipeline processState={currentProcess} />
+            <AgentPipeline
+              processState={currentProcess}
+              onApprove={handleApprove}
+              onReject={handleReject}
+            />
 
             {/* Chat Interaction Interface */}
             <ChatConsole
@@ -316,6 +343,10 @@ export default function App() {
               onSelectSample={handleSelectSample}
             />
           </div>
+        )}
+
+        {activeTab === 'drive' && (
+          <DriveExplorer onSelectFileForExtraction={handleSelectDriveFileForExtraction} />
         )}
 
         {activeTab === 'firestore' && (

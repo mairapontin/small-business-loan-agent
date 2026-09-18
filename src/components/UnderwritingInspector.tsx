@@ -68,12 +68,12 @@ export const UnderwritingInspector: React.FC<UnderwritingInspectorProps> = ({
           </div>
         </div>
 
-        {/* Cymbal Bank Internal Records */}
+        {/* Yataí Finance Internal Records */}
         <div>
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
               <Database className="w-3.5 h-3.5 text-slate-400" />
-              Cymbal Bank Internal Business Profiles (Mock DB)
+              Yataí Finance Internal Business Profiles (Mock DB)
             </h3>
           </div>
           <div className="space-y-3">

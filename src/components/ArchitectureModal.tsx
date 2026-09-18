@@ -60,7 +60,7 @@ export const ArchitectureModal: React.FC<ArchitectureModalProps> = ({ isOpen, on
                 </span>
                 <p className="font-semibold text-slate-800">UnderwritingAgent</p>
                 <p className="text-[11px] text-slate-500 mt-1">
-                  Validates against Cymbal Bank internal records & checks 5 lending rules.
+                  Validates against Yataí Finance internal records & checks 5 lending rules.
                 </p>
               </div>
 

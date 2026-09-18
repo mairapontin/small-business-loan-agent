@@ -60,7 +60,7 @@ export const ELIGIBILITY_RULES: EligibilityRule[] = [
 
 export const MOCK_INTERNAL_RECORDS: Record<string, any> = {
   'SBL-2025-00142': {
-    business_name: 'Cymbal Coffee Roasters LLC',
+    business_name: 'Yataí Coffee Roasters LLC',
     business_type: 'LLC',
     ein: '00-1234567',
     owner_name: 'Jane Doe',
@@ -83,7 +83,7 @@ export const MOCK_INTERNAL_RECORDS: Record<string, any> = {
     account_standing: 'Good',
   },
   'SBL-2025-02142': {
-    business_name: 'Cymbal Coffee Roasters LLC',
+    business_name: 'Yataí Coffee Roasters LLC',
     business_type: 'LLC',
     ein: '00-1234567',
     owner_name: 'Jane Doe',
@@ -106,7 +106,7 @@ export const MOCK_INTERNAL_RECORDS: Record<string, any> = {
     account_standing: 'Good',
   },
   'SBL-2025-00391': {
-    business_name: 'Cymbal Coffee Roasters LLC',
+    business_name: 'Yataí Coffee Roasters LLC',
     business_type: 'LLC',
     ein: '00-1234567',
     owner_name: 'Jane Doe',
@@ -135,7 +135,7 @@ export const SAMPLE_APPLICATIONS: Record<string, { label: string; type: 'complet
     label: 'Complete Application (Happy Path)',
     type: 'complete',
     data: {
-      business_name: 'Cymbal Coffee Roasters LLC',
+      business_name: 'Yataí Coffee Roasters LLC',
       business_type: 'LLC',
       ein: '00-1234567',
       industry: 'Food & Beverage',
@@ -163,7 +163,7 @@ export const SAMPLE_APPLICATIONS: Record<string, { label: string; type: 'complet
     label: 'Incomplete Application (Missing Loan Amount -> Repair & Resume)',
     type: 'incomplete',
     data: {
-      business_name: 'Cymbal Coffee Roasters LLC',
+      business_name: 'Yataí Coffee Roasters LLC',
       business_type: 'LLC',
       ein: '00-1234567',
       industry: 'Food & Beverage',
