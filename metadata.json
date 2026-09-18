@@ -1,0 +1,6 @@
+{
+  "name": "Small Business Loan Agent",
+  "description": "Multi-agent system that automates small business loan processing with human-in-the-loop approval and repair & resume support.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
