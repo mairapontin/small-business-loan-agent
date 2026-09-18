@@ -1,0 +1,55 @@
+# @module Yataí Finance
+# @file mkdocs.yml
+# @description Site independente da modelagem preditiva de crédito agro — buildado separado do site principal, que o referencia
+# @updated 260916_213217
+
+site_name: Modelagem Preditiva — Yataí Finance
+docs_dir: docs
+# Build output goes to <repo>/build/predictive-docs (covered by .gitignore build/ rule).
+# MkDocs resolves site_dir relative to the config file's directory (predictive/).
+site_dir: ../../../../../build/predictive-docs
+
+theme:
+      name: material
+      palette:
+            scheme: slate
+      features:
+            - navigation.footer
+
+plugins:
+      - search
+
+nav:
+      - Visão Geral: index.md
+      - Status Atual: status_atual.md
+      - Plano de Trabalho: plano_trabalho.md
+      - Arquitetura da Modelagem: arquitetura_modelagem.md
+      - Modelo de Ativos e Tecnologia: modelo_ativos_tecnologia.md
+      - Pendências de Política: pendencias_politica.md
+      - Auditoria:
+              - Lógica das Planilhas: auditoria/logica_planilhas.md
+              - Inventário Técnico: auditoria/inventario_tecnico.md
+              - Observações e Inferências: auditoria/observacoes_e_inferencias.md
+              - Pauta de Decisões de Produto: auditoria/pauta_decisoes_produto.md
+      - Revisões:
+              - Metodologia: revisoes/00_metodologia.md
+              - Escopo de Negócio: revisoes/01_escopo_negocio.md
+              - Dados e Temporalidade: revisoes/02_dados_temporalidade.md
+              - Finanças, Crédito e Governança: revisoes/03_financas_credito_governanca.md
+              - Visual e Clareza: revisoes/04_visual_clareza.md
+              - Regressão e Aceite: revisoes/05_regressao_aceite.md
+      - Fontes de Dados:
+              - Fontes de Dados: fontes/fontes_dados.md
+              - Taxonomia de Dados e Regras: fontes/taxonomia_dados_regras.md
+              - Insumos, Clima e Pragas: fontes/fontes_insumos_clima_pragas.md
+              - Eventos Extremos: fontes/fontes_eventos_extremos_v3.md
+              - Risco de Mercado e Derivativos: fontes/fontes_risco_mercado_derivativos.md
+              - Equipamentos e Depreciação: fontes/fontes_equipamentos_depreciacao_credito_v3.md
+              - Logística: fontes/fontes_logistica_v3.md
+              - Energia: fontes/fontes_energia_v3.md
+              - Geopolítica e Sinais: fontes/fontes_geopolitica_sinais_v3.md
+              - Gestão e Tecnologia: fontes/fontes_gestao_tecnologia_v3.md
+              - Governança do Grupo: fontes/fontes_governanca_grupo_v3.md
+              - Fontes Legais Ampliadas: fontes/fontes_legais_ampliadas.md
+              - Notas Regulatórias: fontes/notas_regulatorias.md
+              - Referências de Governança: fontes/referencias_governanca.md

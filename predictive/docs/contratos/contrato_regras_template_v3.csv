@@ -1,0 +1,1 @@
+rule_id,rule_name,rule_category,domain,jurisdiction,product_scope,creditor_scope,input_fields,expression_or_reference,output_type,severity,effective_from,effective_to,approved_by,approval_date,source_reference,version,override_allowed,override_authority,reviewed,status

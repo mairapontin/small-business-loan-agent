@@ -1,0 +1,8 @@
+APROVADO
+Imagens referenciadas: 11
+Referências numéricas: 76
+catalogo_features_v3.csv: 92 registros, 10 colunas
+matriz_causal_v3.csv: 37 registros, 7 colunas
+matriz_fontes_v3.csv: 50 registros, 10 colunas
+dicionario_inventario_ativos_v3.csv: 73 registros, 8 colunas
+Diagramas: 11 PNG e 11 SVG

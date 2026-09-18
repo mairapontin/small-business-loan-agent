@@ -1,0 +1,74 @@
+field_name,nivel,tipo,obrigatorio,descricao,evidencia_preferida,temporalidade,uso
+asset_id,ativo,string,sim,Identificador interno imutável,cadastro controlado,estático,linhagem
+asset_class,ativo,categoria,sim,Classe funcional do ativo,nota e inspeção,eventual,segmentação
+asset_type,ativo,string,sim,Tipo específico do ativo,nota e inspeção,eventual,capacidade
+legal_owner_id,ativo,string,sim,Titular formal,nota/registro/contrato,eventual,grupo e disponibilidade
+economic_operator_id,ativo,string,sim,Entidade que usa e suporta custos,contrato e fluxo,eventual,grupo e custo
+location_id,ativo,string,sim,Local de operação principal,coordenada e inspeção,eventual,logística e risco
+manufacturer_model,ativo,string,não,Identificação técnica sem ranking automático,nota/placa/eventual,eventual,especificação
+serial_or_registry,ativo,string,condicional,Número de série ou registro aplicável,placa/registro,estático,identidade
+manufacture_year,ativo,inteiro,sim,Ano de fabricação,nota/placa,estático,idade
+acquisition_date,ativo,data,sim,Data de aquisição,nota/contrato,evento,depreciação
+acquisition_price,ativo,decimal,sim,Preço de aquisição total,nota/contrato,evento,custo base
+installation_training_cost,ativo,decimal,não,Frete instalação comissionamento e treinamento,nota/contrato,evento,custo all-in
+new_replacement_value,ativo,decimal,sim,Valor de bem novo tecnicamente comparável,cotações/evento,periódico,reposição
+validated_market_value,ativo,decimal,sim,Valor de mercado validado,laudo/cotações/periódico,periódico,garantia e venda
+expected_residual_value,ativo,decimal,sim,Valor residual esperado no horizonte,laudo/modelo versionado,periódico,depreciação
+meter_type,ativo,categoria,condicional,Horímetro odômetro ciclos ou outro,telemetria/inspeção,eventual,uso
+meter_reading,ativo,decimal,condicional,Leitura acumulada,telemetria/foto,diário/mensal,uso e vida
+rated_capacity,ativo,decimal,sim,Potência largura vazão toneladas dia ou capacidade aplicável,ficha e teste,eventual,capacidade
+effective_capacity,ativo,decimal,sim,Capacidade efetivamente observada,telemetria/ordens/safra,operação,capacidade
+capacity_unit,ativo,string,sim,Unidade da capacidade,dicionário,estático,normalização
+criticality,ativo,categoria,sim,Impacto de indisponibilidade no ciclo,análise operacional,anual,continuidade
+backup_asset_or_service,ativo,string,condicional,Ativo ou serviço alternativo,contrato/inventário,eventual,redundância
+condition_grade,ativo,categoria,sim,Condição técnica padronizada,inspeção/laudo,periódico,vida e manutenção
+maintenance_plan_status,ativo,categoria,sim,Em dia atrasado ou sem plano,ordens/manual,mensal,continuidade
+last_preventive_maintenance,ativo,data,condicional,Última manutenção preventiva,ordem/nota,evento,manutenção
+next_maintenance_due,ativo,data_ou_medidor,condicional,Próximo gatilho de manutenção,plano/evento,eventual,capex e parada
+maintenance_backlog_value,ativo,decimal,sim,Valor de manutenção vencida/orçada,ordens/orçamentos,mensal,capex
+repair_cost_12m,ativo,decimal,sim,Custo corretivo em doze meses,notas/ordens,mensal,confiabilidade
+downtime_hours_12m,ativo,decimal,sim,Horas indisponíveis em doze meses,telemetria/ordens,mensal,continuidade
+parts_lead_time_days,ativo,decimal,não,Prazo de reposição de peça crítica,histórico/fornecedor,trimestral,stress
+fuel_or_energy_type,ativo,categoria,condicional,Fonte de energia ou combustível,ficha/operação,eventual,custo
+fuel_consumption_rate,ativo,decimal,condicional,Consumo observado por hora hectare ou tonelada,telemetria/notas,safra,custo
+electricity_consumption_rate,ativo,decimal,condicional,kWh por unidade operacional,medição/fatura,safra,custo
+operator_role_required,ativo,string,condicional,Função e qualificação requerida,manual/política,eventual,equipe
+qualified_operator_coverage,ativo,decimal,condicional,Cobertura de operadores habilitados,registros/escala,mensal,continuidade
+telemetry_available,ativo,booleano,sim,Existência de telemetria útil,integração/teste,eventual,qualidade
+telemetry_coverage,ativo,decimal,condicional,Percentual de operações válidas cobertas,logs,mensal,qualidade
+software_dependency,ativo,string,não,Software licença e versão necessários,contrato/logs,eventual,obsolescência
+connectivity_dependency,ativo,string,não,Rede necessária e modo offline,ficha/teste,eventual,continuidade
+interoperability_standard,ativo,string,não,Padrão de integração como ISOBUS quando aplicável,ficha/teste,eventual,integração
+cyber_support_end_date,ativo,data,não,Fim de suporte ou atualização,fornecedor/contrato,eventual,obsolescência
+insurance_policy_id,ativo,string,condicional,Apólice vinculada,apólice,eventual,LGB/continuidade
+insurance_coverage,ativo,decimal,condicional,Valor e riscos cobertos,apólice,eventual,LGD
+lien_status,ativo,categoria,sim,Gravames e prioridade,registro/contrato,eventual,disponibilidade
+financing_contract_id,ativo,string,condicional,Contrato de financiamento do ativo,contrato,eventual,dívida
+accounting_book_value,ativo,decimal,condicional,Valor contábil líquido,razão ativo fixo,mensal/anual,reconciliação
+accounting_depreciation_12m,ativo,decimal,condicional,Depreciação contábil no período,contabilidade,mensal/anual,reconciliação
+economic_depreciation_12m,ativo,decimal,sim,Perda econômica estimada com método versionado,modelo/laudo,anual,custo econômico
+remaining_useful_life,ativo,decimal,sim,Vida econômica remanescente em anos ou horas,laudo/modelo,anual,reposição
+obsolescence_risk,ativo,categoria,sim,Risco de suporte incompatibilidade eficiência ou peça,fornecedor/inspeção,anual,reposição
+replacement_target_date,ativo,data,condicional,Data indicativa de substituição,plano de ativos,anual,capex
+replacement_capex,ativo,decimal,condicional,Custo all-in menos valor realizável,orçamentos/modelo,trimestral,fluxo de caixa
+planned_disposal_value,ativo,decimal,condicional,Valor líquido esperado na baixa,laudo/cotações,trimestral,fluxo de caixa
+asset_evidence_status,ativo,categoria,sim,Validado pendente divergente ou expirado,workflow,contínuo,confiança
+available_time,ativo,timestamp,sim,Quando a informação ficou disponível,metadado,contínuo,point-in-time
+source_version,ativo,string,sim,Versão da fonte ou laudo,metadado,contínuo,auditoria
+credit_contract_id,financiamento,string,condicional,Identificador do contrato de crédito,contrato,eventual,linhagem
+credit_purpose,financiamento,categoria,condicional,Investimento custeio manutenção ou refinanciamento,contrato,eventual,segmentação
+requested_amount,financiamento,decimal,condicional,Valor solicitado,proposta,evento,necessidade
+released_amount,financiamento,decimal,condicional,Valor efetivamente liberado,extrato,evento,fluxo
+borrower_contribution,financiamento,decimal,condicional,Entrada ou recursos próprios,extrato/contrato,evento,estrutura
+indexer,financiamento,string,condicional,Indexador de remuneração,contrato,eventual,stress
+nominal_rate,financiamento,decimal,condicional,Taxa nominal,contrato,eventual,custo
+lender_spread,financiamento,decimal,não,Spread do agente quando separado,contrato,eventual,custo
+fees_taxes_insurance,financiamento,decimal,sim,Encargos adicionais vinculados,contrato/comprovante,evento,CET econômico
+grace_end_date,financiamento,data,não,Fim da carência,contrato,eventual,caixa
+maturity_date,financiamento,data,sim,Vencimento final,contrato,eventual,dívida
+amortization_schedule,financiamento,relação,sim,Parcelas por data moeda principal juros e encargos,contrato,eventual,caixa
+balloon_amount,financiamento,decimal,não,Parcela residual ou balão,contrato,eventual,risco de refinanciamento
+all_in_effective_cost,financiamento,decimal,sim,TIR do fluxo completo com encargos,cálculo versionado,eventual,custo de crédito
+stressed_refinancing_cost,financiamento,decimal,sim,Custo no cenário de rolagem adversa,cenário versionado,monitoramento,stress
+incremental_cashflow,financiamento,relação,condicional,Caixa incremental atribuível ao investimento,projeto e realizado,mensal,viabilidade
+incremental_dscr,financiamento,decimal,condicional,Caixa incremental sobre serviço da nova dívida,cálculo,mensal,capacidade

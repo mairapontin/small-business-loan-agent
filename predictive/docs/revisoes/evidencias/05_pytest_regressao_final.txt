@@ -1,0 +1,12 @@
+...................................                                      [100%]
+================================ tests coverage ================================
+_______________ coverage: platform linux, python 3.12.3-final-0 ________________
+
+Name                                      Stmts   Miss  Cover   Missing
+-----------------------------------------------------------------------
+testes_projeto/credit_math_reference.py      70      3    96%   96, 98, 111
+testes_projeto/temporal_reference.py         19      0   100%
+-----------------------------------------------------------------------
+TOTAL                                        89      3    97%
+Coverage XML written to file revisoes_projeto/05_coverage_projeto.xml
+35 passed in 0.40s

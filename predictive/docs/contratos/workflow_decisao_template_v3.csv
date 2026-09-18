@@ -1,0 +1,1 @@
+decision_record_id,proposal_id,record_type,status,actor_id,actor_role,authority_level,decision_code,recommended_limit,approved_limit,currency,conditions,reason_codes,free_text_justification,model_version,rule_version,feature_snapshot_id,override_of_record_id,override_reason,valid_from,valid_to,recorded_at
