@@ -1,5 +1,6 @@
 import {
   EligibilityRule,
+  GeoVerificationReport,
   LoanApplicationData,
   LoanDecisionResult,
   OverallStatus,
@@ -187,6 +188,80 @@ export const SAMPLE_APPLICATIONS: Record<string, { label: string; type: 'complet
       collateral_offered: 'Commercial espresso roaster and packaging inventory',
     },
   },
+  'SBL-2025-07788': {
+    label: 'Agro MT — Geo Verified (Happy Path)',
+    type: 'complete',
+    data: {
+      business_name: 'Fazenda Santa Clara Agropastoril LTDA',
+      business_type: 'Ltda',
+      ein: 'MT-4471-0022',
+      industry: 'Agriculture — Soybean',
+      years_in_business: '11',
+      number_of_employees: '28',
+      business_address: {
+        street: 'ROD MT-235, KM 12',
+        city: 'Sorriso',
+        state: 'MT',
+        zip_code: '78670-000',
+      },
+      owner_name: 'Carlos Meireles',
+      owner_email: 'carlos@sjclara.com.br',
+      owner_phone: '(66) 3531-0100',
+      annual_revenue: '$4,200,000',
+      net_profit: '$760,000',
+      existing_debt: '$1,100,000 (custeio)',
+      loan_amount_requested: '$1,500,000',
+      loan_purpose: 'Working Capital',
+      loan_term_months: '12',
+      collateral_offered: 'CPR de soja safra 2026/2027 + penhor do talhão norte',
+      property: {
+        property_id: 'CAR-MT-2201',
+        name: 'Fazenda Santa Clara',
+        municipality: 'Sorriso',
+        state: 'MT',
+        crop: 'Soja',
+        declared_area_ha: 1240,
+        car_polygon_ref: 'SIGEF-CAR-MT-2201-poly-v7',
+      },
+    },
+  },
+  'SBL-2025-08123': {
+    label: 'Agro MT — Geo Blocked (Deforestation + Area Mismatch -> Repair)',
+    type: 'complete',
+    data: {
+      business_name: 'Agropecuária Rio Verde S.A.',
+      business_type: 'S.A.',
+      ein: 'MT-9982-0011',
+      industry: 'Agriculture — Soybean',
+      years_in_business: '8',
+      number_of_employees: '41',
+      business_address: {
+        street: 'ESTRADA VICINAL 08, S/N',
+        city: 'Lucas do Rio Verde',
+        state: 'MT',
+        zip_code: '78455-000',
+      },
+      owner_name: 'Fernanda Duarte',
+      owner_email: 'fernanda@rioverde.agr.br',
+      owner_phone: '(65) 3549-2200',
+      annual_revenue: '$6,800,000',
+      net_profit: '$1,150,000',
+      existing_debt: '$2,400,000',
+      loan_amount_requested: '$2,000,000',
+      loan_purpose: 'Expansion',
+      loan_term_months: '24',
+      collateral_offered: 'Hipoteca do imóvel rural CAR-MT-9902',
+      property: {
+        property_id: 'CAR-MT-9902',
+        name: 'Fazenda Rio Verde',
+        municipality: 'Lucas do Rio Verde',
+        state: 'MT',
+        crop: 'Soja',
+        declared_area_ha: 1500, // superdeclarada vs. 1180 ha no CAR -> BLOCK
+        car_polygon_ref: 'SIGEF-CAR-MT-9902-poly-v3',
+      },
+    },
+  },
 };
 
 export function parseDollarAmount(value: string | number | null | undefined): number {
@@ -250,7 +325,8 @@ export function calculateLoanPricing(
 
 export function evaluateUnderwriting(
   applicationData: LoanApplicationData,
-  loanRequestId: string
+  loanRequestId: string,
+  geoReport?: GeoVerificationReport | null
 ): UnderwritingReport {
   const annualRevenue = parseDollarAmount(applicationData.annual_revenue);
   const loanRequested = parseDollarAmount(applicationData.loan_amount_requested);
@@ -296,20 +372,34 @@ export function evaluateUnderwriting(
 
   const internalRecord = MOCK_INTERNAL_RECORDS[loanRequestId] || Object.values(MOCK_INTERNAL_RECORDS)[0];
 
+  // Fold geo-environmental findings into underwriting.
+  let geoNote = '';
+  if (geoReport && geoReport.checks.length > 0) {
+    for (const flag of geoReport.risk_flags) {
+      if (!riskFlags.includes(flag)) riskFlags.push(flag);
+    }
+    if (geoReport.overall_status === 'REVIEW' && eligibilityStatus === 'ELIGIBLE') {
+      eligibilityStatus = 'REVIEW';
+      matchedRule = matchedRule === 'rule_001' ? 'rule_002' : matchedRule;
+    }
+    geoNote = ` Geo-environmental (${geoReport.property_id}): ${geoReport.overall_status}.`;
+  }
+
   return {
     eligibility_status: eligibilityStatus,
     matched_rule: matchedRule,
     risk_flags: riskFlags,
     internal_record_matched: !!internalRecord,
     credit_score: internalRecord?.credit_score || 700,
-    verification_notes: `Matched internal profile for ${applicationData.business_name || 'Business'}. Credit standing: ${internalRecord?.account_standing || 'Good'}.`,
+    verification_notes: `Matched internal profile for ${applicationData.business_name || 'Business'}. Credit standing: ${internalRecord?.account_standing || 'Good'}.${geoNote}`,
   };
 }
 
 export function finalizeLoanDecision(
   applicationData: LoanApplicationData,
   pricingData: PricingResult,
-  loanRequestId: string
+  loanRequestId: string,
+  geoReport?: GeoVerificationReport | null
 ): LoanDecisionResult {
   const cleanId = loanRequestId.replace(/^SBL-/, '');
   const decisionLetterId = `DL-${cleanId}-001`;
@@ -317,22 +407,36 @@ export function finalizeLoanDecision(
   const approvedRate = pricingData.interest_rate || '6.50%';
   const approvedTerm = `${applicationData.loan_term_months || '60'} months`;
 
+  const conditions = [
+    'Business insurance verification required within 30 days',
+    'Collateral documentation to be submitted before disbursement',
+  ];
+
+  if (geoReport && geoReport.checks.length > 0) {
+    conditions.push(
+      `Environmental monitoring active for ${geoReport.property_id}: quarterly re-check against CAR/DETER/embargo sources (snapshot ${geoReport.decision_time}).`
+    );
+    if (geoReport.overall_status === 'REVIEW') {
+      conditions.push(
+        'Open geo-environmental diligence items must be cleared by the credit authority before disbursement.'
+      );
+    }
+  }
+
   return {
     decision: 'APPROVED',
     decision_letter_id: decisionLetterId,
     approved_amount: approvedAmount,
     approved_rate: approvedRate,
     approved_term: approvedTerm,
-    conditions: [
-      'Business insurance verification required within 30 days',
-      'Collateral documentation to be submitted before disbursement',
-    ],
+    conditions,
     message: `Loan ${loanRequestId} has been approved. Decision letter ${decisionLetterId} has been generated. Approved for ${approvedAmount} at ${approvedRate} for ${approvedTerm}.`,
   };
 }
 
 export const ALL_STEPS: StepName[] = [
   'DocumentExtractionAgent',
+  'GeoVerificationAgent',
   'UnderwritingAgent',
   'PricingAgent',
   'LoanDecisionAgent',
@@ -353,6 +457,7 @@ export class ProcessStateService {
     const now = new Date().toISOString();
     const steps: Record<StepName, any> = {
       DocumentExtractionAgent: { status: 'not_started', completed_at: null, data: null },
+      GeoVerificationAgent: { status: 'not_started', completed_at: null, data: null },
       UnderwritingAgent: { status: 'not_started', completed_at: null, data: null },
       PricingAgent: { status: 'not_started', completed_at: null, data: null },
       LoanDecisionAgent: { status: 'not_started', completed_at: null, data: null },
@@ -362,7 +467,7 @@ export class ProcessStateService {
       loan_request_id: requestId,
       session_id: sessionId,
       current_step: 'DocumentExtractionAgent',
-      overall_status: 'active',
+      overall_status: 'created',
       created_at: now,
       updated_at: now,
       steps,
@@ -394,6 +499,7 @@ export class ProcessStateService {
       const currentIndex = ALL_STEPS.indexOf(stepName);
       if (currentIndex < ALL_STEPS.length - 1) {
         state.current_step = ALL_STEPS[currentIndex + 1];
+        state.overall_status = 'in_progress';
       } else {
         state.current_step = null;
         state.overall_status = 'completed';
@@ -417,7 +523,8 @@ export class ProcessStateService {
     stepName: StepName,
     issueDescription: string,
     missingFields: string[] = [],
-    data?: any
+    data?: any,
+    overallStatus: OverallStatus = 'pending_approval'
   ): ProcessState {
     let state = this.store.get(requestId);
     if (!state) {
@@ -438,7 +545,7 @@ export class ProcessStateService {
     if (data !== undefined) {
       state.steps[stepName].data = data;
     }
-    state.overall_status = 'pending_approval';
+    state.overall_status = overallStatus;
     state.current_step = stepName;
     state.issues.push(issue);
     state.updated_at = now;
@@ -477,7 +584,7 @@ export class ProcessStateService {
     if (currentIndex < ALL_STEPS.length - 1) {
       state.current_step = ALL_STEPS[currentIndex + 1];
     }
-    state.overall_status = 'active';
+    state.overall_status = 'in_progress';
     state.updated_at = new Date().toISOString();
 
     this.store.set(requestId, state);
@@ -505,6 +612,17 @@ export class ProcessStateService {
     overallStatus: OverallStatus | null,
     issues: ProcessIssue[]
   ): { error: string } | null {
+    if (overallStatus === 'blocked') {
+      let issueDesc = 'Unknown issue';
+      for (const issue of issues) {
+        if (!issue.resolved) {
+          issueDesc = issue.description;
+          break;
+        }
+      }
+      return { error: `Cannot proceed to ${toolName}: Blocked — ${issueDesc}` };
+    }
+
     if (overallStatus === 'pending_approval') {
       let issueDesc = 'Unknown issue';
       for (const issue of issues) {

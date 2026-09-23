@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ChatMessage } from '../types';
+import { ChatMessage, OrchestratorId } from '../types';
 import {
   Send,
   Bot,
@@ -21,7 +21,22 @@ interface ChatConsoleProps {
   onApprove: () => void;
   onReject: () => void;
   onSelectSample: (loanId: string, promptText: string) => void;
+  orchestrator: OrchestratorId;
+  onOrchestratorChange: (id: OrchestratorId) => void;
 }
+
+const DRIVERS: { id: OrchestratorId; label: string; hint: string }[] = [
+  {
+    id: 'deterministic',
+    label: 'Deterministic',
+    hint: 'Walks the fixed step order with no narration.',
+  },
+  {
+    id: 'adk-sim',
+    label: 'ADK-sim',
+    hint: 'Reasons about which agent runs next and re-verifies repaired evidence.',
+  },
+];
 
 export const ChatConsole: React.FC<ChatConsoleProps> = ({
   messages,
@@ -30,6 +45,8 @@ export const ChatConsole: React.FC<ChatConsoleProps> = ({
   onApprove,
   onReject,
   onSelectSample,
+  orchestrator,
+  onOrchestratorChange,
 }) => {
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -47,6 +64,9 @@ export const ChatConsole: React.FC<ChatConsoleProps> = ({
 
   const lastMessage = messages[messages.length - 1];
   const waitingForApproval = lastMessage?.requiresApproval && !loading;
+
+  const driverLabel = (id?: OrchestratorId) =>
+    DRIVERS.find((d) => d.id === id)?.label;
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-xs flex flex-col h-[650px] overflow-hidden">
@@ -83,7 +103,52 @@ export const ChatConsole: React.FC<ChatConsoleProps> = ({
           >
             Pause Flow (Incomplete)
           </button>
+          <button
+            type="button"
+            onClick={() => onSelectSample('SBL-2025-07788', 'Process this loan application for SBL-2025-07788')}
+            className="text-xs px-2.5 py-1 rounded-md bg-white border border-slate-200 hover:border-emerald-400 hover:text-emerald-700 text-slate-600 transition-colors"
+          >
+            Agro MT (Clean)
+          </button>
+          <button
+            type="button"
+            onClick={() => onSelectSample('SBL-2025-08123', 'Process this loan application for SBL-2025-08123')}
+            className="text-xs px-2.5 py-1 rounded-md bg-white border border-slate-200 hover:border-rose-400 hover:text-rose-700 text-slate-600 transition-colors"
+          >
+            Agro MT (Blocked)
+          </button>
         </div>
+      </div>
+
+      {/* Orchestration driver selector */}
+      <div className="px-5 py-2 border-b border-slate-100 bg-white flex items-center gap-3">
+        <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+          Driver
+        </span>
+        <div className="inline-flex rounded-lg bg-slate-100 p-0.5">
+          {DRIVERS.map((d) => {
+            const active = orchestrator === d.id;
+            return (
+              <button
+                key={d.id}
+                type="button"
+                title={d.hint}
+                disabled={loading}
+                onClick={() => onOrchestratorChange(d.id)}
+                className={`text-xs px-2.5 py-1 rounded-md transition-colors ${
+                  active
+                    ? 'bg-white text-blue-700 shadow-xs font-semibold'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                {d.label}
+              </button>
+            );
+          })}
+        </div>
+        <span className="text-[11px] text-slate-400">
+          {DRIVERS.find((d) => d.id === orchestrator)?.hint}
+        </span>
       </div>
 
       {/* Messages stream */}
@@ -186,6 +251,11 @@ export const ChatConsole: React.FC<ChatConsoleProps> = ({
                     hour: '2-digit',
                     minute: '2-digit',
                   })}
+                  {isAgent && msg.orchestrator && (
+                    <span className="ml-1.5 inline-block px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-100 font-mono">
+                      {driverLabel(msg.orchestrator)}
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -242,6 +312,22 @@ export const ChatConsole: React.FC<ChatConsoleProps> = ({
           className="shrink-0 px-2.5 py-1 rounded-md bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 transition-colors"
         >
           Resume SBL-2025-00391
+        </button>
+        <button
+          type="button"
+          onClick={() => onSendMessage('Process this loan application for SBL-2025-08123')}
+          disabled={loading}
+          className="shrink-0 px-2.5 py-1 rounded-md bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 transition-colors"
+        >
+          Process SBL-2025-08123 (Agro Blocked)
+        </button>
+        <button
+          type="button"
+          onClick={() => onSendMessage('Resume processing for SBL-2025-08123')}
+          disabled={loading}
+          className="shrink-0 px-2.5 py-1 rounded-md bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 transition-colors"
+        >
+          Resume SBL-2025-08123 (after geo repair)
         </button>
       </div>
 

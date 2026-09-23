@@ -1,40 +1,62 @@
+/**
+ * @module: Small Business Loan Agent
+ * @file: plans/adk-integration.md
+ * @description: ADK integration plan — from adk-sim to real Gemini root agent
+ * @author: Maíra Pontin
+ * @created: 2025-09-21
+ * @updated: 260922_232638
+ * @version: 1.1.0
+ * @reviewer:
+ * @ai_reviewer:
+ * @reviewer_date:
+ */
+
 # ADK Integration Plan — From `adk-sim` to Real Gemini Root Agent
 
-## Status: Planned (not started)
+## Status: Phase 1-2 complete (Phase 3-6 pending)
 
-This document describes the evolution from the current `adk-sim` mock orchestrator to a real Google ADK root agent powered by Gemini. The current demo/prototype phase keeps `adk-sim` as a placeholder with hardcoded rationales. This plan outlines what must change to make the reasoning layer real.
+This document describes the evolution from the current `adk-sim` mock orchestrator to a real Google ADK root agent powered by Gemini. Phase 1-2 are complete (2026-09-22): `@google/genai` is wired, API key management is in place, and `RealAdkOrchestrator` calls Gemini when `GOOGLE_GENAI_API_KEY` is set. Phase 3-6 remain.
 
 ---
 
-## Current State (Demo Phase)
+## Current State (Phase 1-2 complete)
 
 ### What exists today
 
-- **`AdkOrchestrator` class** in `src/services/orchestrator.ts` (line 560-651)
-  - `plan()` — pushes a hardcoded trace line: `"woken for {loanRequestId}; planning verification order from the current process state"`
-  - `nextStep()` — calls `super.nextStep()` (same fixed order as deterministic), then logs a hardcoded rationale from the `DECISION_RATIONALE` map
-  - `preflight()` — re-verifies geo evidence on resume, but uses deterministic logic, not LLM judgment
+- **Three orchestrator drivers** in `src/services/orchestrator.ts`:
+  - `DeterministicOrchestrator` — fixed sequence, no commentary
+  - `AdkOrchestrator` (`adk-sim`) — fixed sequence with hardcoded rationales (demo placeholder)
+  - `RealAdkOrchestrator` (`adk`) — **real Gemini tool-calling** via `@google/genai`
 
-- **`@google/genai` dependency** — installed in `package.json` but **not imported anywhere**
+- **`src/services/genai.ts`** — singleton that initializes `GoogleGenAI` with `GOOGLE_GENAI_API_KEY`; exports `null` when key is missing for graceful degradation
 
-- **No API key configuration** — no `GOOGLE_GENAI_API_KEY` env var, no secret management
+- **`src/services/adkTools.ts`** — defines `PIPELINE_TOOLS` array with four Gemini tool declarations (`run_document_extraction`, `run_geo_verification`, `run_underwriting`, `run_pricing`)
+
+- **API key management** — `.env.example` template, `.gitignore` excludes `.env`, health endpoint reports `genai: 'configured' | 'missing-api-key'`
+
+- **`RealAdkOrchestrator.plan()`** — calls `genAI.models.generateContent()` with `gemini-2.0-flash`, extracts first tool-call from response, stores it in `pendingToolCall`
+
+- **`RealAdkOrchestrator.nextStep()`** — routes from `pendingToolCall` to pipeline step via tool name mapping; falls back to deterministic when no tool-call or API error
 
 - **Pipeline executors are real** — `DOCUMENT_STEP`, `GEO_STEP`, `UNDERWRITING_STEP`, `PRICING_STEP` are deterministic and auditable. They do not depend on which orchestrator driver is selected.
 
 ### What works
 
-- Full pipeline execution end-to-end
+- Full pipeline execution end-to-end with all three orchestrator modes
+- Real Gemini tool-calling when `GOOGLE_GENAI_API_KEY` is set
+- Graceful degradation to deterministic when API key is missing or Gemini call fails
 - Geo-verification blocking and repair flow
 - Human-in-the-loop approval gate
-- Two orchestrator modes selectable in UI
 - Process state inspection and repair console
+- Audit trail: all Gemini decisions logged in `ctx.trace`
 
-### What doesn't work
+### What doesn't work (yet)
 
-- No autonomous reasoning — step selection is hardcoded
-- No LLM-generated narratives — all output text is templates
-- No evidence interpretation — geo repair evidence is re-verified deterministically, not judged by an LLM
-- No natural language explanations — rationales are hardcoded strings
+- No multi-turn tool-calling loop (Phase 3) — `plan()` extracts first tool-call but doesn't iterate through multiple Gemini turns
+- No UI toggle for `adk` mode (Phase 4) — must select via API request body
+- No rate limiting, caching, or monitoring (Phase 6)
+- No LLM-generated narratives — output text is still templates
+- No real geo-spatial data — uses mock CAR/DETER datasets
 
 ---
 
@@ -93,7 +115,7 @@ This document describes the evolution from the current `adk-sim` mock orchestrat
 
 ## Step-by-Step Implementation Plan
 
-### Phase 1: Prerequisites (1-2 days)
+### Phase 1: Prerequisites ✅ Complete (2026-09-22)
 
 #### 1.1 Add API key management
 
@@ -216,7 +238,7 @@ export const pipelineTools: Tool = {
 };
 ```
 
-### Phase 2: Implement Real ADK Orchestrator (3-5 days)
+### Phase 2: Implement Real ADK Orchestrator ✅ Complete (2026-09-22)
 
 #### 2.1 Create `RealAdkOrchestrator` class
 
@@ -504,8 +526,8 @@ The ADK integration is complete when:
 
 1. ✅ `RealAdkOrchestrator` can run the full pipeline with real Gemini calls
 2. ✅ Gemini's rationales are logged in the trace array
-3. ✅ The UI allows selecting `adk` as the orchestrator
-4. ✅ All 4 sample loans run successfully with `orchestrator === 'adk'`
+3. ⬜ The UI allows selecting `adk` as the orchestrator (Phase 4)
+4. ⬜ All 4 sample loans run successfully with `orchestrator === 'adk'` (Phase 5)
 5. ✅ The system falls back to deterministic when Gemini is unavailable
 6. ✅ API key is managed securely (not hardcoded, not committed)
 7. ✅ Audit trail is complete and traceable
@@ -514,24 +536,30 @@ The ADK integration is complete when:
 
 ## Timeline Estimate
 
-| Phase | Duration | Dependencies |
-|---|---|---|
-| Phase 1: Prerequisites | 1-2 days | None |
-| Phase 2: Implement Real ADK Orchestrator | 3-5 days | Phase 1 |
-| Phase 3: Wire Tool-Calling | 2-3 days | Phase 2 |
-| Phase 4: Update UI | 1 day | Phase 2 |
-| Phase 5: Testing & Validation | 2-3 days | Phase 3, 4 |
-| Phase 6: Production Hardening | Ongoing | Phase 5 |
-| **Total** | **9-14 days** | |
+| Phase | Duration | Status | Dependencies |
+|---|---|---|---|
+| Phase 1: Prerequisites | 1-2 days | ✅ Complete (2026-09-22) | None |
+| Phase 2: Implement Real ADK Orchestrator | 3-5 days | ✅ Complete (2026-09-22) | Phase 1 |
+| Phase 3: Wire Tool-Calling | 2-3 days | Pending | Phase 2 |
+| Phase 4: Update UI | 1 day | Pending | Phase 2 |
+| Phase 5: Testing & Validation | 2-3 days | Pending | Phase 3, 4 |
+| Phase 6: Production Hardening | Ongoing | Pending | Phase 5 |
+| **Remaining** | **5-9 days** | | |
 
 ---
 
 ## Next Steps
 
-1. **Decide when to start** — Is the demo phase sufficient for now, or do we need real ADK reasoning for an upcoming milestone?
-2. **Get API key** — Request a Google Gemini API key and set up billing
-3. **Review this plan** — Discuss any architectural concerns or alternative approaches
-4. **Start Phase 1** — Add API key management and tool schemas
+1. **Phase 3: Wire Tool-Calling** — implement multi-turn tool-calling loop so Gemini can call multiple tools in sequence
+2. **Phase 4: Update UI** — add `adk` option to orchestrator toggle in `ChatConsole.tsx`
+3. **Get API key** — set `GOOGLE_GENAI_API_KEY` in `.env` to enable real Gemini calls (currently falls back to deterministic)
+4. **Phase 5: Testing** — run all 4 sample loans through `adk` orchestrator with real API key
+5. **Phase 6: Production hardening** — rate limiting, caching, monitoring
+
+## GitHub Issues
+
+- [#1](https://github.com/mairapontin/small-business-loan-agent/issues/1) — Parent tracking issue for Phase 3-6
+- [#2](https://github.com/mairapontin/small-business-loan-agent/issues/2) — Documentation update (this commit)
 
 ---
 

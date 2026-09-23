@@ -23,6 +23,57 @@ export interface LoanApplicationData {
   loan_purpose: 'Equipment' | 'Expansion' | 'Working Capital' | 'Real Estate' | 'Refinance' | 'Other' | '';
   loan_term_months: string;
   collateral_offered: string;
+  property?: RuralProperty;
+}
+
+// --- Rural property / geo-environmental verification -----------------------
+
+export interface RuralProperty {
+  property_id: string; // CAR id, e.g. 'CAR-MT-2201'
+  name: string;
+  municipality: string;
+  state: string; // UF
+  crop: string; // e.g. 'Soja'
+  declared_area_ha: number; // area declared by the producer
+  car_polygon_ref: string; // reference to the georeferenced CAR polygon
+}
+
+export type GeoCheckStatus = 'PASS' | 'REVIEW' | 'BLOCK';
+
+export interface GeoEvidence {
+  source: string; // e.g. 'CAR', 'DETER/INPE', 'IBAMA-embargo'
+  source_version: string;
+  available_time: string; // ISO — when the org could legitimately know it
+  detail: string;
+}
+
+export interface GeoCheck {
+  id: string;
+  label: string;
+  status: GeoCheckStatus;
+  finding: string; // human-readable finding
+  reason_code: string;
+  evidence: GeoEvidence;
+}
+
+export interface GeoVerificationReport {
+  property_id: string;
+  decision_time: string; // point-in-time cut for the snapshot
+  overall_status: 'CLEARED' | 'REVIEW' | 'BLOCKED';
+  checks: GeoCheck[];
+  risk_flags: string[];
+  blocking_findings: string[];
+  notes: string;
+  repair_evidence?: GeoRepairEvidence; // set when operator evidence cleared a blocking finding
+}
+
+// Evidence an operator can attach during repair to resolve a blocked check.
+export interface GeoRepairEvidence {
+  survey_confirmed_area_ha?: number; // re-surveyed area that resolves an area mismatch
+  deforestation_exclusion_ref?: string; // technical report proving alert is outside polygon
+  embargo_lift_ref?: string; // reference showing embargo no longer applies
+  legal_reserve_correction_pct?: number; // regularized legal reserve percentage
+  reviewer?: string;
 }
 
 export interface UnderwritingReport {
@@ -54,6 +105,7 @@ export interface LoanDecisionResult {
 
 export type StepName =
   | 'DocumentExtractionAgent'
+  | 'GeoVerificationAgent'
   | 'UnderwritingAgent'
   | 'PricingAgent'
   | 'LoanDecisionAgent';
@@ -67,7 +119,15 @@ export type StepStatus =
   | 'rejected'
   | 'error';
 
-export type OverallStatus = 'active' | 'pending_approval' | 'completed' | 'failed';
+export type OverallStatus =
+  | 'created'
+  | 'in_progress'
+  | 'blocked'
+  | 'pending_approval'
+  | 'approved'
+  | 'rejected'
+  | 'completed'
+  | 'failed';
 
 export interface StepState {
   status: StepStatus;
@@ -106,14 +166,24 @@ export interface ChatMessage {
   role: 'user' | 'agent' | 'system';
   content: string;
   timestamp: string;
-  toolCalls?: {
-    tool: string;
-    status: 'running' | 'success' | 'error' | 'halted';
-    details?: any;
-  }[];
+  toolCalls?: ToolCall[];
   requiresApproval?: boolean;
   loanRequestId?: string;
+  orchestrator?: OrchestratorId;
 }
+
+export type ToolCallStatus = 'running' | 'success' | 'error' | 'halted';
+
+export interface ToolCall {
+  tool: string;
+  status: ToolCallStatus;
+  details?: any;
+}
+
+// Who drives the loop: fixed rule order, a simulated ADK agent with hardcoded
+// rationales, or a real ADK root agent powered by Gemini tool-calling.
+// All three run the same deterministic risk code.
+export type OrchestratorId = 'deterministic' | 'adk-sim' | 'adk';
 
 export interface EligibilityRule {
   id: string;

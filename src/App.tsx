@@ -4,7 +4,7 @@ import { ChatConsole } from './components/ChatConsole';
 import { FirestoreConsole } from './components/FirestoreConsole';
 import { UnderwritingInspector } from './components/UnderwritingInspector';
 import { ArchitectureModal } from './components/ArchitectureModal';
-import { ChatMessage, EligibilityRule, ProcessState } from './types';
+import { ChatMessage, EligibilityRule, OrchestratorId, ProcessState } from './types';
 import {
   Building2,
   Database,
@@ -24,13 +24,14 @@ export default function App() {
   const [internalRecords, setInternalRecords] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState<boolean>(false);
   const [showArchModal, setShowArchModal] = useState<boolean>(false);
+  const [orchestrator, setOrchestrator] = useState<OrchestratorId>('deterministic');
 
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'init-1',
       role: 'agent',
       content:
-        "Welcome to Cymbal Bank's Small Business Loan Processing System.\n\nI am the root Orchestrator coordinating 4 specialized sub-agents:\n1. DocumentExtractionAgent — Multimodal PDF extraction\n2. UnderwritingAgent — Cymbal Bank records & 5 lending eligibility rules\n3. PricingAgent — Risk-based interest rates & amortization terms\n4. LoanDecisionAgent — Human-in-the-Loop decision finalization\n\nChoose a sample application below to begin:",
+        "Welcome to Cymbal Bank's Small Business Loan Processing System.\n\nI am the root Orchestrator coordinating 5 specialized sub-agents:\n1. DocumentExtractionAgent — Multimodal PDF extraction\n2. GeoVerificationAgent — Rural property acreage vs CAR, deforestation, embargoes & legal reserve\n3. UnderwritingAgent — Cymbal Bank records & 5 lending eligibility rules\n4. PricingAgent — Risk-based interest rates & amortization terms\n5. LoanDecisionAgent — Human-in-the-Loop decision finalization\n\nChoose a sample application below to begin:",
       timestamp: new Date().toISOString(),
     },
   ]);
@@ -83,7 +84,7 @@ export default function App() {
       const res = await fetch('/api/agent/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, activeLoanId }),
+        body: JSON.stringify({ message: text, activeLoanId, orchestrator }),
       });
 
       if (!res.ok) {
@@ -104,6 +105,7 @@ export default function App() {
         toolCalls: data.toolCalls || [],
         requiresApproval: data.requiresApproval,
         loanRequestId: data.loanRequestId,
+        orchestrator: data.orchestrator,
       };
 
       setMessages((prev) => [...prev, agentMsg]);
@@ -138,25 +140,33 @@ export default function App() {
     handleSendMessage(promptText);
   };
 
-  const handleRepairProcess = async (loanId: string, updatedFields: Record<string, any>) => {
+  const handleRepairProcess = async (
+    loanId: string,
+    updatedFields: Record<string, any>,
+    stepName: string = 'DocumentExtractionAgent'
+  ) => {
     try {
       const res = await fetch(`/api/processes/${loanId}/repair`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          step_name: 'DocumentExtractionAgent',
+          step_name: stepName,
           updated_fields: updatedFields,
         }),
       });
 
       if (res.ok) {
         await fetchProcesses();
+        const data = await res.json().catch(() => ({}));
         setMessages((prev) => [
           ...prev,
           {
             id: `sys-${Date.now()}`,
             role: 'system',
-            content: `Firestore State Repaired: loan_amount_requested set to ${updatedFields.loan_amount_requested} for ${loanId}. Status set to active. Ready to resume.`,
+            content:
+              data.status === 'still_blocked'
+                ? `Geo verification still blocked for ${loanId}: some findings remain. Add the missing evidence.`
+                : `Firestore state repaired for ${stepName} on ${loanId}. Status set to active. Ready to resume.`,
             timestamp: new Date().toISOString(),
           },
         ]);
@@ -239,6 +249,28 @@ export default function App() {
               >
                 SBL-2025-00391 (Incomplete)
               </button>
+              <button
+                type="button"
+                onClick={() => setActiveLoanId('SBL-2025-07788')}
+                className={`px-2.5 py-1 rounded-md transition-colors ${
+                  activeLoanId === 'SBL-2025-07788'
+                    ? 'bg-white text-emerald-700 font-semibold shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                SBL-2025-07788 (Agro Clean)
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveLoanId('SBL-2025-08123')}
+                className={`px-2.5 py-1 rounded-md transition-colors ${
+                  activeLoanId === 'SBL-2025-08123'
+                    ? 'bg-white text-rose-700 font-semibold shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                SBL-2025-08123 (Agro Blocked)
+              </button>
             </div>
 
             {/* Architecture Modal Button */}
@@ -279,7 +311,7 @@ export default function App() {
           >
             <Database className="w-4 h-4" />
             Firestore State & Repair Console
-            {currentProcess?.overall_status === 'pending_approval' && (
+            {(currentProcess?.overall_status === 'pending_approval' || currentProcess?.overall_status === 'blocked') && (
               <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
             )}
           </button>
@@ -314,6 +346,8 @@ export default function App() {
               onApprove={handleApprove}
               onReject={handleReject}
               onSelectSample={handleSelectSample}
+              orchestrator={orchestrator}
+              onOrchestratorChange={setOrchestrator}
             />
           </div>
         )}

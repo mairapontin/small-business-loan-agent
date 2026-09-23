@@ -11,6 +11,7 @@ import {
   ChevronDown,
   ChevronUp,
   Info,
+  Globe,
 } from 'lucide-react';
 
 interface AgentPipelineProps {
@@ -29,6 +30,12 @@ const AGENTS: Array<{
     title: 'Document Extraction',
     subtitle: 'Extracts loan application details & validates critical fields',
     icon: FileText,
+  },
+  {
+    id: 'GeoVerificationAgent',
+    title: 'Geo & Environmental Verification',
+    subtitle: 'Checks property acreage vs CAR, deforestation, embargoes & legal reserve',
+    icon: Globe,
   },
   {
     id: 'UnderwritingAgent',
@@ -103,7 +110,7 @@ export const AgentPipeline: React.FC<AgentPipelineProps> = ({ processState }) =>
             Multi-Agent Orchestration Pipeline
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Sequential 4-agent workflow with HITL approval & state persistence
+            Sequential 5-agent workflow with geo-environmental gate, HITL approval & state persistence
           </p>
         </div>
         {processState && (
@@ -113,10 +120,18 @@ export const AgentPipeline: React.FC<AgentPipelineProps> = ({ processState }) =>
             </span>
             <span
               className={`text-xs px-2 py-0.5 rounded-md font-medium uppercase ${
-                processState.overall_status === 'completed'
+                processState.overall_status === 'completed' || processState.overall_status === 'approved'
                   ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  : processState.overall_status === 'rejected'
+                  ? 'bg-red-50 text-red-700 border border-red-200'
+                  : processState.overall_status === 'blocked'
+                  ? 'bg-orange-50 text-orange-700 border border-orange-200'
                   : processState.overall_status === 'pending_approval'
                   ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                  : processState.overall_status === 'failed'
+                  ? 'bg-red-50 text-red-700 border border-red-200'
+                  : processState.overall_status === 'created'
+                  ? 'bg-slate-50 text-slate-600 border border-slate-200'
                   : 'bg-blue-50 text-blue-700 border border-blue-200'
               }`}
             >

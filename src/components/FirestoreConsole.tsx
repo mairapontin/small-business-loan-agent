@@ -16,7 +16,7 @@ interface FirestoreConsoleProps {
   processes: ProcessState[];
   activeLoanId: string;
   onSelectProcess: (loanId: string) => void;
-  onRepairProcess: (loanId: string, updatedFields: Record<string, any>) => Promise<void>;
+  onRepairProcess: (loanId: string, updatedFields: Record<string, any>, stepName?: string) => Promise<void>;
   onResetProcess: (loanId: string) => Promise<void>;
   onResumeWorkflow: (loanId: string) => void;
 }
@@ -36,8 +36,41 @@ export const FirestoreConsole: React.FC<FirestoreConsoleProps> = ({
   const [repairing, setRepairing] = useState(false);
   const [repairSuccess, setRepairSuccess] = useState(false);
 
+  // Geo evidence repair state
+  const [geoArea, setGeoArea] = useState('');
+  const [geoDeforRef, setGeoDeforRef] = useState('');
+  const [geoReservePct, setGeoReservePct] = useState('');
+  const [geoEmbargoRef, setGeoEmbargoRef] = useState('');
+  const [geoRepairing, setGeoRepairing] = useState(false);
+  const [geoRepairMsg, setGeoRepairMsg] = useState<string | null>(null);
+
+  const pendingStep: StepName | undefined = activeProcess
+    ? (Object.keys(activeProcess.steps) as StepName[]).find(
+        (s) => activeProcess.steps[s].status === 'pending_approval'
+      )
+    : undefined;
+  const isGeoPending = pendingStep === 'GeoVerificationAgent';
+
   const hasUnresolvedIssues = activeProcess?.issues?.some((i) => !i.resolved);
-  const isPendingApproval = activeProcess?.overall_status === 'pending_approval';
+  const isPendingApproval = activeProcess?.overall_status === 'blocked' || activeProcess?.overall_status === 'pending_approval';
+
+  const handleGeoRepairSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeProcess) return;
+    setGeoRepairing(true);
+    setGeoRepairMsg(null);
+    try {
+      const evidence: Record<string, any> = { reviewer: 'Credit Analyst (UI)' };
+      if (geoArea.trim()) evidence.survey_confirmed_area_ha = Number(geoArea);
+      if (geoDeforRef.trim()) evidence.deforestation_exclusion_ref = geoDeforRef.trim();
+      if (geoReservePct.trim()) evidence.legal_reserve_correction_pct = Number(geoReservePct);
+      if (geoEmbargoRef.trim()) evidence.embargo_lift_ref = geoEmbargoRef.trim();
+      await onRepairProcess(activeProcess.loan_request_id, evidence, 'GeoVerificationAgent');
+      setGeoRepairMsg('Evidence submitted. Re-running verification…');
+    } finally {
+      setGeoRepairing(false);
+    }
+  };
 
   const handleRepairSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -99,10 +132,22 @@ export const FirestoreConsole: React.FC<FirestoreConsoleProps> = ({
                         isSelected ? 'text-amber-200' : 'text-amber-500'
                       }`}
                     />
-                  ) : proc.overall_status === 'completed' ? (
+                  ) : proc.overall_status === 'completed' || proc.overall_status === 'approved' ? (
                     <CheckCircle2
                       className={`w-3.5 h-3.5 ${
                         isSelected ? 'text-emerald-200' : 'text-emerald-500'
+                      }`}
+                    />
+                  ) : proc.overall_status === 'blocked' ? (
+                    <AlertTriangle
+                      className={`w-3.5 h-3.5 ${
+                        isSelected ? 'text-orange-200' : 'text-orange-500'
+                      }`}
+                    />
+                  ) : proc.overall_status === 'rejected' ? (
+                    <AlertTriangle
+                      className={`w-3.5 h-3.5 ${
+                        isSelected ? 'text-red-200' : 'text-red-500'
                       }`}
                     />
                   ) : null}
@@ -135,7 +180,96 @@ export const FirestoreConsole: React.FC<FirestoreConsoleProps> = ({
           ) : (
             <>
               {/* Repair Tool Banner if pending approval */}
-              {isPendingApproval && hasUnresolvedIssues && (
+              {isPendingApproval && hasUnresolvedIssues && isGeoPending && (
+                <div className="bg-rose-50 border border-rose-200 rounded-lg p-4">
+                  <div className="flex items-start gap-2.5">
+                    <AlertTriangle className="w-5 h-5 text-rose-700 shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-xs font-semibold text-rose-900">
+                        Geo-Environmental Verification Blocked (Pause Step Active)
+                      </h4>
+                      <p className="text-xs text-rose-800 mt-0.5">
+                        The GeoVerificationAgent halted the workflow with blocking findings. Attach the
+                        required evidence below to re-run verification and resume the pipeline.
+                      </p>
+                      <ul className="mt-2 space-y-1 text-[11px] text-rose-800 list-disc pl-4">
+                        {(activeProcess.steps.GeoVerificationAgent.data?.blocking_findings || []).map(
+                          (f: string, i: number) => (
+                            <li key={i}>{f}</li>
+                          )
+                        )}
+                      </ul>
+
+                      <form onSubmit={handleGeoRepairSubmit} className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-[11px] font-medium text-rose-900 mb-0.5">
+                            Área re-medida (ha) — resolve divergência de metragem:
+                          </label>
+                          <input
+                            type="number"
+                            value={geoArea}
+                            onChange={(e) => setGeoArea(e.target.value)}
+                            placeholder="1180"
+                            className="w-full bg-white border border-rose-300 rounded px-2.5 py-1 text-xs text-slate-800 font-mono focus:outline-hidden focus:ring-1 focus:ring-rose-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-medium text-rose-900 mb-0.5">
+                            Laudo de exclusão de desmate (ref.) — alerta fora do polígono:
+                          </label>
+                          <input
+                            type="text"
+                            value={geoDeforRef}
+                            onChange={(e) => setGeoDeforRef(e.target.value)}
+                            placeholder="LAUDO-GEO-2026-0432"
+                            className="w-full bg-white border border-rose-300 rounded px-2.5 py-1 text-xs text-slate-800 font-mono focus:outline-hidden focus:ring-1 focus:ring-rose-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-medium text-rose-900 mb-0.5">
+                            Reserva legal regularizada (%):
+                          </label>
+                          <input
+                            type="number"
+                            value={geoReservePct}
+                            onChange={(e) => setGeoReservePct(e.target.value)}
+                            placeholder="82"
+                            className="w-full bg-white border border-rose-300 rounded px-2.5 py-1 text-xs text-slate-800 font-mono focus:outline-hidden focus:ring-1 focus:ring-rose-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-medium text-rose-900 mb-0.5">
+                            Comprovante de suspensão de embargo (ref.):
+                          </label>
+                          <input
+                            type="text"
+                            value={geoEmbargoRef}
+                            onChange={(e) => setGeoEmbargoRef(e.target.value)}
+                            placeholder="IBAMA-Susp-2026-118"
+                            className="w-full bg-white border border-rose-300 rounded px-2.5 py-1 text-xs text-slate-800 font-mono focus:outline-hidden focus:ring-1 focus:ring-rose-500"
+                          />
+                        </div>
+                        <div className="sm:col-span-2 flex items-center gap-2">
+                          <button
+                            type="submit"
+                            disabled={geoRepairing}
+                            className="px-3 py-1.5 rounded bg-rose-700 hover:bg-rose-800 text-white text-xs font-medium flex items-center gap-1 shadow-xs transition-colors"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                            {geoRepairing ? 'Re-running verification...' : '1. Submit Evidence & Re-verify'}
+                          </button>
+                          {geoRepairMsg && (
+                            <span className="text-[11px] text-rose-800 font-medium">{geoRepairMsg}</span>
+                          )}
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Repair Tool Banner — missing document fields */}
+              {isPendingApproval && hasUnresolvedIssues && !isGeoPending && (
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                   <div className="flex items-start gap-2.5">
                     <Wrench className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
@@ -185,16 +319,16 @@ export const FirestoreConsole: React.FC<FirestoreConsoleProps> = ({
               )}
 
               {/* Resume Trigger button if repaired */}
-              {activeProcess.overall_status === 'active' &&
+              {activeProcess.overall_status === 'in_progress' &&
                 activeProcess.steps.DocumentExtractionAgent.status === 'completed' &&
                 activeProcess.steps.UnderwritingAgent.status === 'not_started' && (
                   <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 flex items-center justify-between">
                     <div>
                       <p className="text-xs font-semibold text-emerald-900">
-                        Document Repaired & Ready to Resume!
+                        Repaired & Ready to Resume!
                       </p>
                       <p className="text-[11px] text-emerald-700">
-                        DocumentExtractionAgent data is valid. Resume pipeline from UnderwritingAgent.
+                        Completed steps are valid. Resume the pipeline from the next pending agent.
                       </p>
                     </div>
                     <button
