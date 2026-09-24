@@ -1,3 +1,16 @@
+/**
+ * @module: Small Business Loan Agent
+ * @file: orchestrator.ts
+ * @description: Pipeline orchestrator with three drivers (deterministic, adk-sim, adk) and multi-turn Gemini tool-calling loop
+ * @author: Maíra Pontin
+ * @created: 2025-09-21
+ * @updated: 260923_155446
+ * @version: 1.2.0
+ * @reviewer:
+ * @ai_reviewer:
+ * @reviewer_date:
+ */
+
 import {
   GeoRepairEvidence,
   GeoVerificationReport,
@@ -148,7 +161,14 @@ const PRICING_STEP: AgentStep = {
   name: 'PricingAgent',
   run(data) {
     if (!data.underwriting) {
-      throw new Error('PricingAgent requires an underwriting report');
+      return {
+        kind: 'halt',
+        payload: {},
+        issue: 'PricingAgent requires an underwriting report',
+        headline: 'no underwriting report is on file',
+        detail:
+          'Pricing is derived from the eligibility status and risk tier, so UnderwritingAgent must complete first. The workflow has been stopped before any terms were quoted.',
+      };
     }
     return {
       kind: 'completed',
@@ -181,6 +201,19 @@ function stepAfter(name: StepName): StepName | null {
   return index >= 0 && index < ANALYSIS_STEPS.length - 1
     ? ANALYSIS_STEPS[index + 1]
     : null;
+}
+
+/**
+ * Pipeline position is the precondition check: a step may run only once every
+ * step before it has completed. Used to validate whichever step a driver picks.
+ */
+function prerequisitesMet(
+  name: StepName,
+  completed: Set<StepName>
+): boolean {
+  const index = PIPELINE.findIndex((s) => s.name === name);
+  if (index < 0 || completed.has(name)) return false;
+  return PIPELINE.slice(0, index).every((s) => completed.has(s.name));
 }
 
 function fold(data: PipelineData, name: StepName, payload: any) {
@@ -653,14 +686,20 @@ export class AdkOrchestrator extends PipelineOrchestrator {
 }
 
 /**
- * Real ADK root agent powered by Gemini tool-calling. Replaces the hardcoded
- * rationales in AdkOrchestrator with actual LLM reasoning. The LLM decides which
- * verification agent to invoke and why, but the agent executors themselves remain
- * deterministic — risk math, eligibility thresholds, and BLOCK rules are not
- * subject to LLM interpretation.
+ * Real ADK root agent powered by Gemini multi-turn tool-calling. After each
+ * pipeline step completes, the result is sent back to Gemini as a
+ * functionResponse and the model decides which tool to call next. This
+ * continues until all steps are done or Gemini stops calling tools (at which
+ * point the driver falls back to deterministic for any remaining steps).
  *
- * Graceful degradation: if genAI is null (no API key) or the API call fails,
- * falls back to deterministic behavior.
+ * The agent executors themselves remain deterministic — risk math, eligibility
+ * thresholds, and BLOCK rules are not subject to LLM interpretation. Gemini
+ * proposes the next step; the pipeline order decides whether that step may run.
+ *
+ * Graceful degradation: if genAI is null (no API key) the driver is
+ * deterministic throughout. Once any API call fails, geminiUnavailable latches
+ * and no further call is made for the rest of the run — the fallback is decided
+ * once, not retried at every step.
  */
 export class RealAdkOrchestrator extends PipelineOrchestrator {
   readonly id = 'adk' as const;
@@ -668,8 +707,11 @@ export class RealAdkOrchestrator extends PipelineOrchestrator {
 
   private conversation: any[] = [];
   private pendingToolCall: { name: string; args: any } | null = null;
+  private stepsReportedToGemini = 0;
+  private geminiUnavailable = false;
 
   protected async plan(loanRequestId: string, ctx: RunContext) {
+    this.geminiUnavailable = false;
     if (!genAI) {
       ctx.trace.push(
         `GOOGLE_GENAI_API_KEY not set; falling back to deterministic mode for ${loanRequestId}`
@@ -692,6 +734,7 @@ export class RealAdkOrchestrator extends PipelineOrchestrator {
           ],
         },
       ];
+      this.stepsReportedToGemini = 0;
 
       const response = await genAI.models.generateContent({
         model: 'gemini-2.0-flash',
@@ -727,8 +770,11 @@ export class RealAdkOrchestrator extends PipelineOrchestrator {
         })),
       });
     } catch (err: any) {
-      ctx.trace.push(`Gemini API error: ${err.message}; falling back to deterministic`);
+      this.geminiUnavailable = true;
       this.pendingToolCall = null;
+      ctx.trace.push(
+        `Gemini API error: ${err.message}; deterministic order for all steps`
+      );
     }
   }
 
@@ -737,18 +783,62 @@ export class RealAdkOrchestrator extends PipelineOrchestrator {
     completed: Set<StepName>,
     ctx: RunContext
   ): Promise<StepName | null> {
-    if (!genAI || !this.pendingToolCall) {
+    if (!genAI || this.geminiUnavailable) {
       return super.nextStep(data, completed, ctx);
     }
 
-    const toolName = this.pendingToolCall.name;
-    const stepName = this.toolNameToStepName(toolName);
-
-    if (!stepName || completed.has(stepName)) {
-      return super.nextStep(data, completed, ctx);
+    if (this.pendingToolCall) {
+      const picked = this.resolveToolCall(completed, ctx);
+      if (picked) return picked;
     }
 
+    try {
+      await this.reportResultsAndAskGemini(ctx);
+
+      const picked = this.resolveToolCall(completed, ctx);
+      if (picked) return picked;
+
+      ctx.trace.push(
+        'Gemini did not return a usable tool call; falling back to deterministic for remaining steps'
+      );
+    } catch (err: any) {
+      this.geminiUnavailable = true;
+      ctx.trace.push(
+        `Gemini error in multi-turn loop: ${err.message}; deterministic order from here on`
+      );
+    }
+
+    return super.nextStep(data, completed, ctx);
+  }
+
+  /**
+   * Consumes the pending tool call. Gemini chooses *which* verification is
+   * worth running next; it does not choose whether the pipeline order is
+   * legal. A pick whose prerequisites are unmet would score credit against
+   * unverified collateral or price an un-underwritten file, so it is refused
+   * here and the fixed policy order takes over.
+   */
+  private resolveToolCall(
+    completed: Set<StepName>,
+    ctx: RunContext
+  ): StepName | null {
+    const call = this.pendingToolCall;
     this.pendingToolCall = null;
+    if (!call) return null;
+
+    const stepName = this.toolNameToStepName(call.name);
+    if (!stepName) {
+      ctx.trace.push(`Gemini called unmapped tool ${call.name}; ignoring`);
+      return null;
+    }
+
+    if (!prerequisitesMet(stepName, completed)) {
+      ctx.trace.push(
+        `Gemini picked ${call.name} before its prerequisites were met; running the policy step instead`
+      );
+      return null;
+    }
+
     return stepName;
   }
 
@@ -762,7 +852,7 @@ export class RealAdkOrchestrator extends PipelineOrchestrator {
       return null;
     }
 
-    if (!genAI) {
+    if (!genAI || this.geminiUnavailable) {
       return this.deterministicPreflight(data, completed, ctx);
     }
 
@@ -816,6 +906,7 @@ Respond with JSON: {"trust": true/false, "reason": "explanation"}`,
       ctx.log[ctx.log.length - 1].details = { judgment };
       return null;
     } catch (err: any) {
+      this.geminiUnavailable = true;
       ctx.trace.push(`Gemini preflight error: ${err.message}; falling back to deterministic`);
       return this.deterministicPreflight(data, completed, ctx);
     }
@@ -864,6 +955,50 @@ Respond with JSON: {"trust": true/false, "reason": "explanation"}`,
     return null;
   }
 
+  private async reportResultsAndAskGemini(ctx: RunContext): Promise<void> {
+    while (this.stepsReportedToGemini < ctx.log.length) {
+      const entry = ctx.log[this.stepsReportedToGemini];
+      const toolName = this.stepNameToToolName(entry.tool);
+      if (toolName && (entry.status === 'success' || entry.status === 'error')) {
+        this.conversation.push({
+          role: 'user',
+          parts: [
+            {
+              functionResponse: {
+                name: toolName,
+                response: { result: entry.details ?? {} },
+              },
+            },
+          ],
+        });
+      }
+      this.stepsReportedToGemini++;
+    }
+
+    const response = await genAI!.models.generateContent({
+      model: 'gemini-2.0-flash',
+      contents: this.conversation,
+      config: { tools: PIPELINE_TOOLS },
+    });
+
+    const parts = response.candidates?.[0]?.content?.parts || [];
+    const toolCalls = parts.filter((p: any) => p.functionCall);
+
+    if (toolCalls.length > 0 && toolCalls[0].functionCall?.name) {
+      const next = toolCalls[0].functionCall;
+      this.pendingToolCall = { name: next.name!, args: next.args || {} };
+      ctx.trace.push(`Gemini decided: call ${next.name} next`);
+
+      this.conversation.push({
+        role: 'model',
+        parts: parts.map((p: any) => ({
+          text: p.text,
+          functionCall: p.functionCall,
+        })),
+      });
+    }
+  }
+
   private toolNameToStepName(toolName: string): StepName | null {
     const mapping: Record<string, StepName> = {
       run_document_extraction: 'DocumentExtractionAgent',
@@ -873,18 +1008,33 @@ Respond with JSON: {"trust": true/false, "reason": "explanation"}`,
     };
     return mapping[toolName] || null;
   }
+
+  private stepNameToToolName(stepName: string): string | null {
+    const mapping: Record<string, string> = {
+      DocumentExtractionAgent: 'run_document_extraction',
+      GeoVerificationAgent: 'run_geo_verification',
+      UnderwritingAgent: 'run_underwriting',
+      PricingAgent: 'run_pricing',
+    };
+    return mapping[stepName] || null;
+  }
 }
 
-export const ORCHESTRATORS: Record<OrchestratorId, PipelineOrchestrator> = {
+/**
+ * The two stateless drivers are safe to share. `adk` is not: it carries the
+ * Gemini conversation for the run it is planning, so one instance reused by
+ * concurrent requests leaks one borrower's tool results into another's plan.
+ * The HTTP layer therefore gets a fresh `adk` driver per request.
+ */
+const STATELESS_DRIVERS: Record<'deterministic' | 'adk-sim', PipelineOrchestrator> = {
   deterministic: new DeterministicOrchestrator(),
   'adk-sim': new AdkOrchestrator(),
-  adk: new RealAdkOrchestrator(),
 };
 
 export function orchestratorFor(kind?: unknown): PipelineOrchestrator {
-  if (kind === 'adk') return ORCHESTRATORS.adk;
-  if (kind === 'adk-sim') return ORCHESTRATORS['adk-sim'];
-  return ORCHESTRATORS.deterministic;
+  if (kind === 'adk') return new RealAdkOrchestrator();
+  if (kind === 'adk-sim') return STATELESS_DRIVERS['adk-sim'];
+  return STATELESS_DRIVERS.deterministic;
 }
 
 export interface GeoRepairOutcome {

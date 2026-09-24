@@ -1,3 +1,16 @@
+/**
+ * @module: Small Business Loan Agent
+ * @file: src/components/ChatConsole.tsx
+ * @description: Chat console component with orchestrator driver selector
+ * @author: Maíra Pontin
+ * @created: 2025-09-21
+ * @updated: 260923_032530
+ * @version: 1.1.0
+ * @reviewer:
+ * @ai_reviewer:
+ * @reviewer_date:
+ */
+
 import React, { useState, useRef, useEffect } from 'react';
 import { ChatMessage, OrchestratorId } from '../types';
 import {
@@ -35,6 +48,11 @@ const DRIVERS: { id: OrchestratorId; label: string; hint: string }[] = [
     id: 'adk-sim',
     label: 'ADK-sim',
     hint: 'Reasons about which agent runs next and re-verifies repaired evidence.',
+  },
+  {
+    id: 'adk',
+    label: 'ADK',
+    hint: 'Real Gemini tool-calling with multi-turn reasoning (requires API key).',
   },
 ];
 
