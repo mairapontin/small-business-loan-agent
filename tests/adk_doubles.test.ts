@@ -4,8 +4,8 @@
  * @description: Offline regression suite for the Gemini driver using SDK test doubles, with network access killed
  * @author: Maíra Pontin
  * @created: 2026-09-23
- * @updated: 260923_155446
- * @version: 1.0.0
+ * @updated: 2026-09-28T10:56:05
+ * @version: 1.1.0
  * @reviewer:
  * @ai_reviewer:
  * @reviewer_date:
@@ -24,10 +24,13 @@ globalThis.fetch = (async () => {
 }) as typeof fetch;
 
 const { genAI } = await import('../src/services/genai');
-const { orchestratorFor } = await import('../src/services/orchestrator');
+const { orchestratorFor, applyGeoRepairEvidence } = await import(
+  '../src/services/orchestrator'
+);
 const { ProcessStateService, SAMPLE_APPLICATIONS } = await import(
   '../src/services/loanService'
 );
+const { clearCache } = await import('../src/services/responseCache');
 
 const MODEL = 'gemini-2.0-flash';
 const CLEAN = 'SBL-2025-02142';
@@ -75,6 +78,7 @@ function useGemini(script: (object | Error)[]): Call[] {
 }
 
 async function startAdk(loanRequestId: string) {
+  clearCache();
   ProcessStateService.reset(loanRequestId);
   const application = structuredClone(SAMPLE_APPLICATIONS[loanRequestId].data);
   return orchestratorFor('adk').start(loanRequestId, application);
@@ -180,4 +184,46 @@ test('concurrent adk runs never share a Gemini conversation', async () => {
     )
   );
   assert.ok(ids.includes(CLEAN) && ids.includes(AGRO), 'both loans must be planned');
+});
+
+test('Gemini trusting repair evidence does not skip the fresh geo re-verification', async () => {
+  useGemini([
+    toolCall('run_document_extraction'),
+    toolCall('run_geo_verification'),
+    noToolCall(),
+    { parts: [{ text: '{"trust": true, "reason": "operator laudo accepted"}' }] },
+    noToolCall(),
+  ]);
+
+  clearCache();
+  ProcessStateService.reset(BLOCKED);
+  const application = structuredClone(SAMPLE_APPLICATIONS[BLOCKED].data);
+  const halted = await orchestratorFor('adk').start(BLOCKED, application);
+  assert.match(halted.content, /geo-environmental verification is BLOCKED/);
+
+  const repaired = applyGeoRepairEvidence(BLOCKED, {
+    survey_confirmed_area_ha: 1180,
+    deforestation_exclusion_ref: 'unverified-reference',
+    legal_reserve_correction_pct: 80,
+    reviewer: 'Operator (test)',
+  });
+  assert.equal(repaired?.status, 'repaired');
+
+  // Drop the response cache so the resume's plan() consumes its own scripted
+  // turn — otherwise the cached plan params shift every response one slot and
+  // preflight would reach the JSON-parse catch instead of the trust judgment.
+  clearCache();
+  const resumed = await orchestratorFor('adk').resume(BLOCKED);
+
+  assert.match(
+    resumed.content,
+    /Gemini trusted the evidence/,
+    'the trust branch must be the path under test'
+  );
+  assert.match(
+    resumed.content,
+    /re-verification returned/,
+    'a Gemini trust judgment may accompany the deterministic re-check, never replace it'
+  );
+  assert.equal(resumed.requiresApproval, true);
 });

@@ -1,8 +1,24 @@
+/**
+ * @module: Small Business Loan Agent
+ * @file: server.ts
+ * @description: Express server, API routes, PORT config
+ * @author: Maíra Pontin
+ * @created: 2025-09-21
+ * @updated: 260924_012808
+ * @version: 1.1.0
+ * @reviewer:
+ * @ai_reviewer:
+ * @reviewer_date:
+ */
+
 import express, { Request, Response } from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
 import { genAI } from './src/services/genai';
+import { getRateLimitStats } from './src/services/rateLimiter';
+import { getCacheStats } from './src/services/responseCache';
+import { getMonitorStats } from './src/services/monitor';
 import {
   ELIGIBILITY_RULES,
   MOCK_INTERNAL_RECORDS,
@@ -49,6 +65,9 @@ async function startServer() {
       runtime: 'node',
       service: 'small-business-loan-agent',
       genai: genAI ? 'configured' : 'missing-api-key',
+      rateLimit: getRateLimitStats(),
+      cache: getCacheStats(),
+      monitor: getMonitorStats(),
     });
   });
 

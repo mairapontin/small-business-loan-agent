@@ -4,7 +4,7 @@
  * @description: ADK integration plan — from adk-sim to real Gemini root agent
  * @author: Maíra Pontin
  * @created: 2025-09-21
- * @updated: 260923_160452
+ * @updated: 260924_012808
  * @version: 1.1.0
  * @reviewer:
  * @ai_reviewer:
@@ -13,9 +13,9 @@
 
 # ADK Integration Plan — From `adk-sim` to Real Gemini Root Agent
 
-## Status: Phase 1-5 complete (Phase 6 pending)
+## Status: Phase 1-6 complete (6.4 secret rotation pending)
 
-This document describes the evolution from the current `adk-sim` mock orchestrator to a real Google ADK root agent powered by Gemini. Phase 1-4 are complete (2026-09-23): `@google/genai` is wired, API key management is in place, `RealAdkOrchestrator` calls Gemini with multi-turn tool-calling when `GOOGLE_GENAI_API_KEY` is set, after each step completes the result is sent back to Gemini to decide the next tool, and the UI now includes a toggle for all three orchestrator modes. Phase 5 is complete (2026-09-23): the pipeline is covered by 16 offline tests (`npm test`) and Gemini's step picks are now validated against pipeline order. Phase 6 remains.
+This document describes the evolution from the current `adk-sim` mock orchestrator to a real Google ADK root agent powered by Gemini. Phase 1-5 were completed on 2026-09-23. Phase 6 (production hardening) is complete as of 2026-09-24: rate limiting (sliding-window, 60 calls/min default), response caching (in-memory, 5-min TTL), and structured monitoring (latency, success/failure, per-loan tracking) are all wired into `RealAdkOrchestrator` and exposed via `/api/health`. Only 6.4 (secret rotation) remains.
 
 ---
 
@@ -52,7 +52,7 @@ This document describes the evolution from the current `adk-sim` mock orchestrat
 
 ### What doesn't work (yet)
 
-- No rate limiting, caching, or monitoring (Phase 6)
+- No secret rotation mechanism (Phase 6.4)
 - No LLM-generated narratives — output text is still templates
 - No real geo-spatial data — uses mock CAR/DETER datasets
 
@@ -418,25 +418,21 @@ output from `--format=cjs` to `--format=esm` (`package.json` declares `"type": "
 
 Run them with `npm test`.
 
-### Phase 6: Production Hardening (ongoing)
+### Phase 6: Production Hardening (6.1-6.3 complete, 6.4 pending)
 
-#### 6.1 Rate limiting
+#### 6.1 Rate limiting ✅ (2026-09-24)
 
-Add rate limiting for Gemini API calls to avoid quota exhaustion.
+Sliding-window rate limiter in `src/services/rateLimiter.ts`. Default 60 calls/minute, configurable via `GEMINI_RATE_LIMIT_PER_MINUTE` env var. Integrated into `RealAdkOrchestrator.callGemini()` — every Gemini API call is gated by `checkRateLimit()` before the request is made. Stats exposed via `/api/health`.
 
-#### 6.2 Caching
+#### 6.2 Caching ✅ (2026-09-24)
 
-Cache Gemini responses for identical inputs to reduce API costs.
+In-memory response cache in `src/services/responseCache.ts`. SHA-256 hash of request parameters as key, 5-minute TTL (configurable via `GEMINI_CACHE_TTL_MS`), max 100 entries (configurable via `GEMINI_CACHE_MAX_SIZE`). Integrated into `callGemini()` — cache hit skips the API call entirely. Stats (size, hits, misses, hit rate) exposed via `/api/health`.
 
-#### 6.3 Monitoring
+#### 6.3 Monitoring ✅ (2026-09-24)
 
-Add logging for:
-- Gemini API call latency
-- Token usage
-- Error rates
-- Fallback events (when `genAI` is null)
+Structured monitoring in `src/services/monitor.ts`. Every Gemini call is recorded with method name, latency, success/failure, error message, and loan request ID. Console logging in `[INFO]`/`[ERROR]` format. Stats (total calls, failure rate, avg latency) exposed via `/api/health`.
 
-#### 6.4 Secret rotation
+#### 6.4 Secret rotation (pending)
 
 Implement a mechanism to rotate the `GOOGLE_GENAI_API_KEY` without restarting the server.
 
@@ -536,7 +532,7 @@ The ADK integration is complete when:
 
 1. ✅ `RealAdkOrchestrator` can run the full pipeline with real Gemini calls
 2. ✅ Gemini's rationales are logged in the trace array
-3. ⬜ The UI allows selecting `adk` as the orchestrator (Phase 4)
+3. ✅ The UI allows selecting `adk` as the orchestrator (Phase 4)
 4. ✅ All 4 sample loans run successfully with `orchestrator === 'adk'` (Phase 5 — 12 HTTP runs on the production bundle, 0 errors, state parity with `deterministic`; Gemini's own step picks are validated offline with test doubles, since a live run needs the operator's own API key)
 5. ✅ The system falls back to deterministic when Gemini is unavailable
 6. ✅ API key is managed securely (not hardcoded, not committed)
@@ -553,15 +549,15 @@ The ADK integration is complete when:
 | Phase 3: Wire Tool-Calling | 2-3 days | ✅ Complete (2026-09-23) | Phase 2 |
 | Phase 4: Update UI | 1 day | ✅ Complete (2026-09-23) | Phase 2 |
 | Phase 5: Testing & Validation | 2-3 days | ✅ Complete (2026-09-23) | Phase 3, 4 |
-| Phase 6: Production Hardening | Ongoing | Pending | Phase 5 |
-| **Remaining** | **Phase 6 only** | | |
+| Phase 6: Production Hardening | Ongoing | ✅ 6.1-6.3 Complete (2026-09-24); 6.4 pending | Phase 5 |
+| **Remaining** | **6.4 (secret rotation) only** | | |
 
 ---
 
 ## Next Steps
 
 1. **Get API key** — set `GOOGLE_GENAI_API_KEY` in `.env` to enable real Gemini calls (currently falls back to deterministic)
-2. **Phase 6: Production hardening** — rate limiting, caching, monitoring
+2. **Phase 6.4: Secret rotation** — rotate `GOOGLE_GENAI_API_KEY` without server restart
 
 ## GitHub Issues
 

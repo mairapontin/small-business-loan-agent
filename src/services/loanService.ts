@@ -1,3 +1,16 @@
+/**
+ * @module: Small Business Loan Agent
+ * @file: loanService.ts
+ * @description: Process state service, sample data, eligibility rules and pricing/decision math for the five-step loan pipeline
+ * @author: Maíra Pontin
+ * @created: 2026-09-17
+ * @updated: 2026-09-28T10:39:26
+ * @version: 1.1.0
+ * @reviewer:
+ * @ai_reviewer:
+ * @reviewer_date:
+ */
+
 import {
   EligibilityRule,
   GeoVerificationReport,
@@ -370,7 +383,7 @@ export function evaluateUnderwriting(
     matchedRule = 'rule_002';
   }
 
-  const internalRecord = MOCK_INTERNAL_RECORDS[loanRequestId] || Object.values(MOCK_INTERNAL_RECORDS)[0];
+  const internalRecord = MOCK_INTERNAL_RECORDS[loanRequestId];
 
   // Fold geo-environmental findings into underwriting.
   let geoNote = '';
@@ -390,8 +403,10 @@ export function evaluateUnderwriting(
     matched_rule: matchedRule,
     risk_flags: riskFlags,
     internal_record_matched: !!internalRecord,
-    credit_score: internalRecord?.credit_score || 700,
-    verification_notes: `Matched internal profile for ${applicationData.business_name || 'Business'}. Credit standing: ${internalRecord?.account_standing || 'Good'}.${geoNote}`,
+    credit_score: internalRecord?.credit_score,
+    verification_notes: internalRecord
+      ? `Matched internal profile for ${applicationData.business_name || 'Business'}. Credit standing: ${internalRecord.account_standing}.${geoNote}`
+      : `No internal record found for ${loanRequestId}; absence reported rather than estimated.${geoNote}`,
   };
 }
 

@@ -4,8 +4,8 @@
  * @description: Pipeline orchestrator with three drivers (deterministic, adk-sim, adk) and multi-turn Gemini tool-calling loop
  * @author: Maíra Pontin
  * @created: 2025-09-21
- * @updated: 260923_155446
- * @version: 1.2.0
+ * @updated: 2026-09-28T10:56:05
+ * @version: 1.3.0
  * @reviewer:
  * @ai_reviewer:
  * @reviewer_date:
@@ -37,6 +37,9 @@ import {
 } from './geoVerificationService';
 import { genAI } from './genai';
 import { PIPELINE_TOOLS } from './adkTools';
+import { checkRateLimit } from './rateLimiter';
+import { getCached, setCache } from './responseCache';
+import { recordGeminiCall } from './monitor';
 
 /**
  * The orchestration seam.
@@ -283,7 +286,16 @@ function approvalQuestion(data: PipelineData): string {
 export type Intent = 'approve' | 'reject' | 'resume' | 'process';
 
 // Standalone so the HTTP layer can route without importing a driver instance.
+// A negated approval ("not approved", "don't approve") is a refusal, so the
+// negation is checked before any positive keyword.
 export function classifyIntent(lower: string): Intent {
+  if (
+    /\b(?:do not|don'?t|dont|never|not)\s+(?:approve|approved|accept|proceed)\b/.test(
+      lower
+    )
+  ) {
+    return 'reject';
+  }
   if (
     lower === 'yes' ||
     lower === 'approve' ||
@@ -388,6 +400,21 @@ export abstract class PipelineOrchestrator {
       );
     }
 
+    if (state.overall_status !== 'pending_approval') {
+      return this.result(
+        ctx,
+        `Cannot approve ${loanRequestId}: the approval gate is open only for a file awaiting a human decision. Current status: ${state.overall_status}.`
+      );
+    }
+
+    const underwriting = state.steps.UnderwritingAgent.data as UnderwritingReport | null;
+    if (underwriting?.eligibility_status === 'INELIGIBLE') {
+      return this.result(
+        ctx,
+        `Cannot approve ${loanRequestId}: underwriting rule ${underwriting.matched_rule} marks this file INELIGIBLE (${underwriting.risk_flags[0] ?? 'see the underwriting report'}). Impeditive rules are not overridable at the approval gate.`
+      );
+    }
+
     ctx.log.push({
       tool: 'check_process_status',
       status: 'success',
@@ -424,6 +451,12 @@ export abstract class PipelineOrchestrator {
   async reject(loanRequestId: string): Promise<OrchestrationResult> {
     const ctx = this.newContext();
     const state = ProcessStateService.getProcessStatus(loanRequestId);
+    if (state && ['approved', 'rejected'].includes(state.overall_status)) {
+      return this.result(
+        ctx,
+        `Cannot reject ${loanRequestId}: the decision is final (status: ${state.overall_status}). Rejections apply only while the file is not yet decided.`
+      );
+    }
     if (state) {
       ProcessStateService.updateStepStatus(
         loanRequestId,
@@ -710,6 +743,22 @@ export class RealAdkOrchestrator extends PipelineOrchestrator {
   private stepsReportedToGemini = 0;
   private geminiUnavailable = false;
 
+  private async callGemini(method: string, params: any, loanRequestId?: string): Promise<any> {
+    const cached = getCached<any>({ method, params });
+    if (cached) return cached;
+
+    const start = Date.now();
+    try {
+      const response = await genAI!.models.generateContent(params);
+      recordGeminiCall(method, Date.now() - start, true, undefined, loanRequestId);
+      setCache({ method, params }, response);
+      return response;
+    } catch (err: any) {
+      recordGeminiCall(method, Date.now() - start, false, err.message, loanRequestId);
+      throw err;
+    }
+  }
+
   protected async plan(loanRequestId: string, ctx: RunContext) {
     this.geminiUnavailable = false;
     if (!genAI) {
@@ -736,13 +785,14 @@ export class RealAdkOrchestrator extends PipelineOrchestrator {
       ];
       this.stepsReportedToGemini = 0;
 
-      const response = await genAI.models.generateContent({
+      checkRateLimit();
+      const response = await this.callGemini('plan', {
         model: 'gemini-2.0-flash',
         contents: this.conversation,
         config: {
           tools: PIPELINE_TOOLS,
         },
-      });
+      }, loanRequestId);
 
       const candidates = response.candidates;
       if (!candidates || candidates.length === 0) {
@@ -793,7 +843,7 @@ export class RealAdkOrchestrator extends PipelineOrchestrator {
     }
 
     try {
-      await this.reportResultsAndAskGemini(ctx);
+      await this.reportResultsAndAskGemini(ctx, data.loanRequestId);
 
       const picked = this.resolveToolCall(completed, ctx);
       if (picked) return picked;
@@ -865,7 +915,8 @@ export class RealAdkOrchestrator extends PipelineOrchestrator {
       const evidenceSummary = JSON.stringify(report.repair_evidence, null, 2);
       const reportSummary = summarizeGeoReport(report);
 
-      const response = await genAI.models.generateContent({
+      checkRateLimit();
+      const response = await this.callGemini('preflight', {
         model: 'gemini-2.0-flash',
         contents: [
           {
@@ -885,7 +936,7 @@ Respond with JSON: {"trust": true/false, "reason": "explanation"}`,
             ],
           },
         ],
-      });
+      }, data.loanRequestId);
 
       const text =
         response.candidates?.[0]?.content?.parts?.[0]?.text || '{"trust": false}';
@@ -901,10 +952,14 @@ Respond with JSON: {"trust": true/false, "reason": "explanation"}`,
         );
       }
 
-      ctx.trace.push(`Gemini trusted the evidence: ${judgment.reason}`);
+      ctx.trace.push(
+        `Gemini trusted the evidence: ${judgment.reason}; re-verifying against the current CAR/DETER snapshot anyway`
+      );
       ctx.log[ctx.log.length - 1].status = 'success';
       ctx.log[ctx.log.length - 1].details = { judgment };
-      return null;
+      // A trust judgment from the LLM never replaces the deterministic re-check:
+      // it can veto a repair, only accompany it.
+      return this.deterministicPreflight(data, completed, ctx);
     } catch (err: any) {
       this.geminiUnavailable = true;
       ctx.trace.push(`Gemini preflight error: ${err.message}; falling back to deterministic`);
@@ -952,10 +1007,11 @@ Respond with JSON: {"trust": true/false, "reason": "explanation"}`,
       stored
     );
     data.geoReport = stored;
+    ctx.trace.push(`re-verification returned ${fresh.overall_status}; continuing`);
     return null;
   }
 
-  private async reportResultsAndAskGemini(ctx: RunContext): Promise<void> {
+  private async reportResultsAndAskGemini(ctx: RunContext, loanRequestId: string): Promise<void> {
     while (this.stepsReportedToGemini < ctx.log.length) {
       const entry = ctx.log[this.stepsReportedToGemini];
       const toolName = this.stepNameToToolName(entry.tool);
@@ -975,11 +1031,12 @@ Respond with JSON: {"trust": true/false, "reason": "explanation"}`,
       this.stepsReportedToGemini++;
     }
 
-    const response = await genAI!.models.generateContent({
+    checkRateLimit();
+    const response = await this.callGemini('nextStep', {
       model: 'gemini-2.0-flash',
       contents: this.conversation,
       config: { tools: PIPELINE_TOOLS },
-    });
+    }, loanRequestId);
 
     const parts = response.candidates?.[0]?.content?.parts || [];
     const toolCalls = parts.filter((p: any) => p.functionCall);

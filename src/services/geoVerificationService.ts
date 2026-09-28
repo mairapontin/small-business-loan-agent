@@ -1,3 +1,16 @@
+/**
+ * @module: Small Business Loan Agent
+ * @file: geoVerificationService.ts
+ * @description: Geo-environmental verification engine — CAR/DETER/embargo/legal-reserve checks with point-in-time evidence behind a swappable data-source adapter
+ * @author: Maíra Pontin
+ * @created: 2026-09-22
+ * @updated: 2026-09-28T10:39:26
+ * @version: 1.1.0
+ * @reviewer:
+ * @ai_reviewer:
+ * @reviewer_date:
+ */
+
 import {
   GeoCheck,
   GeoEvidence,
@@ -196,17 +209,21 @@ export function runGeoVerification(
   let deforStatus: GeoCheck['status'] = 'PASS';
   let deforReason = 'NO_DEFORESTATION_OVERLAP';
   let deforFinding = 'Sem sobreposição do polígono com alertas de desmatamento na janela analisada.';
-  if (repair?.deforestation_exclusion_ref) {
-    deforStatus = 'PASS';
-    deforReason = 'DEFORESTATION_EXCLUDED_BY_EVIDENCE';
-    deforFinding = `Alerta de desmate afastado por laudo técnico (${repair.deforestation_exclusion_ref}): polígono do alerta fora do imóvel.`;
-  } else if (facts.deforestation_overlap_ha > 0) {
+  if (facts.deforestation_overlap_ha > 0) {
     const recent =
       facts.deforestation_detection_date &&
       daysBetween(facts.deforestation_detection_date, decisionTime) <= DEFORESTATION_RECENT_DAYS;
-    deforStatus = recent ? 'BLOCK' : 'REVIEW';
-    deforReason = recent ? 'RECENT_DEFORESTATION_ALERT' : 'DEFORESTATION_ALERT';
-    deforFinding = `Polígono sobrepõe ${facts.deforestation_overlap_ha} ha de alerta de desmatamento (detecção em ${facts.deforestation_detection_date}).`;
+    if (repair?.deforestation_exclusion_ref?.trim()) {
+      // An operator-supplied laudo is a claim, not a verified fact: it can
+      // downgrade an impeditve BLOCK to diligence-level REVIEW, never to PASS.
+      deforStatus = 'REVIEW';
+      deforReason = 'DEFORESTATION_EXCLUSION_PENDING_REVIEW';
+      deforFinding = `Laudo ${repair.deforestation_exclusion_ref} declara o alerta (${facts.deforestation_overlap_ha} ha) fora do polígono;${recent ? ' detecção recente;' : ''} mantém-se em REVIEW até verificação independente da sobreposição.`;
+    } else {
+      deforStatus = recent ? 'BLOCK' : 'REVIEW';
+      deforReason = recent ? 'RECENT_DEFORESTATION_ALERT' : 'DEFORESTATION_ALERT';
+      deforFinding = `Polígono sobrepõe ${facts.deforestation_overlap_ha} ha de alerta de desmatamento (detecção em ${facts.deforestation_detection_date}).`;
+    }
   }
   checks.push({
     id: 'deforestation',

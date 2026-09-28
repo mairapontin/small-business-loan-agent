@@ -4,7 +4,7 @@
  * @description: Project instructions and architecture overview
  * @author: Maíra Pontin
  * @created: 2025-09-21
- * @updated: 260923_160544
+ * @updated: 260924_012808
  * @version: 1.1.0
  * @reviewer:
  * @ai_reviewer:
@@ -13,11 +13,14 @@
 
 # Small Business Loan Agent — Project Instructions
 
-## Current Phase: ADK Integration (Phase 1-5 complete)
+## Current Phase: ADK Integration (Phase 1-6 complete; 6.4 secret rotation pending)
 
-The multi-agent pipeline is fully wired and functional. Phase 1-4 of the ADK integration are complete: `@google/genai` is wired, API key management is in place, `RealAdkOrchestrator` calls Gemini with multi-turn tool-calling when `GOOGLE_GENAI_API_KEY` is set, after each step completes the result is sent back to Gemini to decide the next tool, and the UI now includes a toggle for all three orchestrator modes (deterministic, adk-sim, adk). Without the key, it gracefully degrades to deterministic mode.
+The multi-agent pipeline is fully wired and functional. All ADK integration phases are complete:
+- **Phase 1-4** (2026-09-22–23): `@google/genai` wired, API key management, `RealAdkOrchestrator` with multi-turn tool-calling, UI toggle for all three orchestrator modes
+- **Phase 5** (2026-09-23): 16 offline tests (`npm test`), pipeline order enforcement, five defects fixed at root cause
+- **Phase 6** (2026-09-24): Rate limiting (sliding-window, 60 calls/min), response caching (in-memory, 5-min TTL), structured monitoring (latency, success/failure, per-loan tracking) — all exposed via `/api/health`
 
-Phase 5 (testing & validation) is complete: 16 offline tests in `tests/` (`npm test`), no network access. Validation found five defects, all fixed at root cause — see the "Order enforcement" section below.
+Without the API key, it gracefully degrades to deterministic mode.
 
 ## Architecture
 
@@ -99,10 +102,11 @@ The risk math, eligibility thresholds and BLOCK rules remain outside LLM reach r
 2. ~~**Add API key management**~~ — **Done** (Phase 1)
 3. ~~**Complete tool-calling loop**~~ — **Done** (Phase 3)
 4. ~~**Add UI toggle for `adk` mode**~~ — **Done** (Phase 4)
-5. **Replace in-memory state** with Firestore or a durable store
-6. **Replace mock geo data** with real CAR/DETER/SICAR API integrations
-7. **Add authentication** — at minimum, operator identity for the approval gate
-8. **Add rate limiting, caching, and monitoring** for Gemini API calls (Phase 6)
+5. ~~**Add rate limiting, caching, and monitoring**~~ — **Done** (Phase 6)
+6. **Replace in-memory state** with Firestore or a durable store
+7. **Replace mock geo data** with real CAR/DETER/SICAR API integrations
+8. **Add authentication** — at minimum, operator identity for the approval gate
+9. **Secret rotation** — rotate `GOOGLE_GENAI_API_KEY` without server restart (Phase 6.4)
 
 ## Running the Project
 
@@ -138,6 +142,9 @@ This project defaults to port 3000 but respects `PORT` env var. Port 3000 may be
 - `src/services/orchestrator.ts` — Pipeline orchestrator, all three drivers, the ADK seam
 - `src/services/genai.ts` — GoogleGenAI singleton (null when API key missing)
 - `src/services/adkTools.ts` — Gemini tool declarations for pipeline steps
+- `src/services/rateLimiter.ts` — Sliding-window rate limiter for Gemini calls (60/min default)
+- `src/services/responseCache.ts` — In-memory response cache (5-min TTL, SHA-256 keys)
+- `src/services/monitor.ts` — Structured logging for Gemini calls (latency, success/failure, per-loan)
 - `src/services/loanService.ts` — Process state service, sample data, underwriting rules
 - `src/services/geoVerificationService.ts` — Geo-verification logic, CAR/DETER checks
 - `src/types.ts` — All shared types, 8-value OverallStatus enum
