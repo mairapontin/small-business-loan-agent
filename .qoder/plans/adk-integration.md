@@ -1,10 +1,10 @@
 /**
  * @module: Small Business Loan Agent
- * @file: plans/adk-integration.md
+ * @file: .qoder/plans/adk-integration.md
  * @description: ADK integration plan — from adk-sim to real Gemini root agent
  * @author: Maíra Pontin
  * @created: 2025-09-21
- * @updated: 260924_012808
+ * @updated: 2026-09-28T18:21:42
  * @version: 1.1.0
  * @reviewer:
  * @ai_reviewer:

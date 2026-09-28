@@ -4,7 +4,7 @@
  * @description: Project instructions and architecture overview
  * @author: Maíra Pontin
  * @created: 2025-09-21
- * @updated: 2026-09-28T18:06:23
+ * @updated: 2026-09-28T18:21:42
  * @version: 1.1.0
  * @reviewer:
  * @ai_reviewer:
@@ -45,7 +45,7 @@ All inherit from `PipelineOrchestrator` (abstract base class) and share the same
 | `preflight()` | No-op | Re-verifies geo evidence deterministically | Falls back to deterministic for now |
 | LLM calls | None | None (hardcoded strings) | Real Gemini API calls via `@google/genai` |
 
-The `adk-sim` driver remains as a demo placeholder with hardcoded rationales. The `adk` driver (`RealAdkOrchestrator`) is the real implementation — it calls Gemini's tool-calling API and falls back to deterministic mode when the API key is missing or the call fails. The `PIPELINE` array, `AgentStep` executors, and `ProcessStateService` stay untouched — only the reasoning layer changes. See `plans/adk-integration.md` for the full plan and progress.
+The `adk-sim` driver remains as a demo placeholder with hardcoded rationales. The `adk` driver (`RealAdkOrchestrator`) is the real implementation — it calls Gemini's tool-calling API and falls back to deterministic mode when the API key is missing or the call fails. The `PIPELINE` array, `AgentStep` executors, and `ProcessStateService` stay untouched — only the reasoning layer changes. See `.qoder/plans/adk-integration.md` for the full plan and progress.
 
 ### Order Enforcement (Phase 5 fixes)
 
@@ -74,7 +74,7 @@ The risk math, eligibility thresholds and BLOCK rules remain outside LLM reach r
 | ADK tool-calling | **Implemented** — multi-turn loop: `plan()` gets first tool-call, `nextStep()` sends results back and gets subsequent calls |
 | Order enforcement over LLM picks | **Real** — `prerequisitesMet()` refuses a Gemini pick that breaks pipeline order; covered by offline regression tests |
 | Test suite | **Real** — `npm test` runs 24 offline tests (`tests/orchestrator.test.ts`, `tests/adk_doubles.test.ts`, `tests/approval_guards.test.ts`); Gemini is replaced by in-process doubles and `fetch` is disabled, so no test touches the network |
-| API key / environment config | **Configured** — `.env.example` template, `.gitignore` excludes `.env`, health endpoint reports status |
+| API key / environment config | **Configured** — `.env.example` template, `.gitignore` excludes `.env` and `.qoder/*` (with `!.qoder/plans/` so plans stay versioned), health endpoint reports status |
 | Persistence (Firestore, database) | **Not implemented** — in-memory only |
 | UI toggle for `adk` mode | **Implemented** — Phase 4 complete, all three drivers selectable in UI |
 
@@ -153,3 +153,4 @@ This project defaults to port 3000 but respects `PORT` env var. Port 3000 may be
 - `tests/orchestrator.test.ts` — driver parity, halt/block/repair/resume and approval-gate regressions (no API key)
 - `tests/adk_doubles.test.ts` — offline Gemini doubles: order enforcement, failure latch, conversation isolation
 - `tests/approval_guards.test.ts` — approval-gate intent, missing internal-record reporting and geo-evidence downgrades (no API key)
+- `.qoder/plans/adk-integration.md` — ADK integration plan and phase progress (repo-tracked; other `.qoder/` content is gitignored)
