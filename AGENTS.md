@@ -4,7 +4,7 @@
  * @description: Project instructions and architecture overview
  * @author: Maíra Pontin
  * @created: 2025-09-21
- * @updated: 260924_012808
+ * @updated: 2026-09-28T18:06:23
  * @version: 1.1.0
  * @reviewer:
  * @ai_reviewer:
@@ -19,6 +19,7 @@ The multi-agent pipeline is fully wired and functional. All ADK integration phas
 - **Phase 1-4** (2026-09-22–23): `@google/genai` wired, API key management, `RealAdkOrchestrator` with multi-turn tool-calling, UI toggle for all three orchestrator modes
 - **Phase 5** (2026-09-23): 16 offline tests (`npm test`), pipeline order enforcement, five defects fixed at root cause
 - **Phase 6** (2026-09-24): Rate limiting (sliding-window, 60 calls/min), response caching (in-memory, 5-min TTL), structured monitoring (latency, success/failure, per-loan tracking) — all exposed via `/api/health`
+- **Approval-gate hardening** (2026-09-28): Geo laudo evidence downgrades BLOCK to REVIEW only, never PASS; missing internal records report absence instead of borrowing another profile. Suite grew to 24 tests.
 
 Without the API key, it gracefully degrades to deterministic mode.
 
@@ -72,7 +73,7 @@ The risk math, eligibility thresholds and BLOCK rules remain outside LLM reach r
 | LLM reasoning (`adk` driver) | **Real** — Gemini tool-calling when `GOOGLE_GENAI_API_KEY` is set; `adk-sim` still uses hardcoded rationales |
 | ADK tool-calling | **Implemented** — multi-turn loop: `plan()` gets first tool-call, `nextStep()` sends results back and gets subsequent calls |
 | Order enforcement over LLM picks | **Real** — `prerequisitesMet()` refuses a Gemini pick that breaks pipeline order; covered by offline regression tests |
-| Test suite | **Real** — `npm test` runs 16 offline tests (`tests/orchestrator.test.ts`, `tests/adk_doubles.test.ts`); Gemini is replaced by in-process doubles and `fetch` is disabled, so no test touches the network |
+| Test suite | **Real** — `npm test` runs 24 offline tests (`tests/orchestrator.test.ts`, `tests/adk_doubles.test.ts`, `tests/approval_guards.test.ts`); Gemini is replaced by in-process doubles and `fetch` is disabled, so no test touches the network |
 | API key / environment config | **Configured** — `.env.example` template, `.gitignore` excludes `.env`, health endpoint reports status |
 | Persistence (Firestore, database) | **Not implemented** — in-memory only |
 | UI toggle for `adk` mode | **Implemented** — Phase 4 complete, all three drivers selectable in UI |
@@ -84,7 +85,7 @@ The risk math, eligibility thresholds and BLOCK rules remain outside LLM reach r
 - Geo-verification blocking and repair flow (operator uploads evidence, system re-verifies)
 - Human approval/rejection gate
 - Three orchestrator drivers (deterministic, adk-sim, adk) — all three selectable in the UI and via API
-- 16 offline regression tests (`npm test`) covering driver parity, blocking, repair and the Phase 5 defect fixes
+- 24 offline regression tests (`npm test`) covering driver parity, blocking, repair, the Phase 5 defect fixes and the approval-gate guards
 - Real Gemini tool-calling when `GOOGLE_GENAI_API_KEY` is set
 - Graceful degradation to deterministic when API key is missing or Gemini call fails
 - Process state inspection and repair console
@@ -123,7 +124,7 @@ PORT=3001 npm run dev
 # Type-check
 npm run lint
 
-# Run the offline test suite (16 tests, no network)
+# Run the offline test suite (24 tests, no network)
 npm test
 
 # Production build + run
@@ -151,3 +152,4 @@ This project defaults to port 3000 but respects `PORT` env var. Port 3000 may be
 - `src/App.tsx` — React UI, 3 tabs, orchestrator toggle
 - `tests/orchestrator.test.ts` — driver parity, halt/block/repair/resume and approval-gate regressions (no API key)
 - `tests/adk_doubles.test.ts` — offline Gemini doubles: order enforcement, failure latch, conversation isolation
+- `tests/approval_guards.test.ts` — approval-gate intent, missing internal-record reporting and geo-evidence downgrades (no API key)
