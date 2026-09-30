@@ -4,7 +4,7 @@
  * @description: Project instructions and architecture overview
  * @author: Maíra Pontin
  * @created: 2025-09-21
- * @updated: 2026-09-28T18:21:42
+ * @updated: 2026-09-30T18:25:21
  * @version: 1.1.0
  * @reviewer:
  * @ai_reviewer:
@@ -115,11 +115,8 @@ The risk math, eligibility thresholds and BLOCK rules remain outside LLM reach r
 # Install dependencies
 npm install
 
-# Start on default port 3000
-npm run dev
-
-# Start on a custom port (e.g., 3001)
-PORT=3001 npm run dev
+# Start the server (always pass the project port, see Port Convention)
+PORT=3123 npm run dev
 
 # Type-check
 npm run lint
@@ -131,11 +128,18 @@ npm test
 npm run build && npm start
 ```
 
-The UI is at `http://localhost:<PORT>`. The API health check is at `/api/health`.
+The UI is at `http://localhost:3123`. The API health check is at `http://localhost:3123/api/health`.
 
 ## Port Convention
 
-This project defaults to port 3000 but respects `PORT` env var. Port 3000 may be occupied by the Yatai Finance Platform (Docker). If so, use `PORT=3001`.
+This project runs on **port 3123**. Always start it with `PORT=3123 npm run dev`.
+
+Ports **3000, 3001 and 3002 are off-limits** — never bind this project to any of them. They belong
+to the Yatai Finance Platform (Docker) and to other local services, and occupying them breaks
+work happening in parallel elsewhere on the machine.
+
+`server.ts:57` still falls back to `3000` when `PORT` is unset, so the guard is the launch command,
+not the code. Never rely on the default.
 
 ## Key Files
 
