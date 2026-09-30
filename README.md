@@ -1,32 +1,37 @@
 # Small Business Loan Agent
 
-A multi-agent system built with the [Google Agent Development Kit (ADK)](https://google.github.io/adk-docs/) that automates small business loan processing for Cymbal Bank. It demonstrates sequential multi-agent orchestration, human-in-the-loop approval, LLM-as-Judge validation, and Firestore-backed repair & resume.
+A multi-agent system built with the [Google Agent Development Kit (ADK)](https://google.github.io/adk-docs/) that automates small business loan processing for Yataí Finance. It demonstrates sequential multi-agent orchestration, human-in-the-loop approval, LLM-as-Judge validation, and Firestore-backed repair & resume.
 
 ## A. Overview & Functionalities
 
 ### Agent Details
 
-| Property             | Value                                       |
-| -------------------- | ------------------------------------------- |
-| **Interaction Type** | Workflow                                    |
-| **Complexity**       | Advanced                                    |
-| **Agent Type**       | Multi-Agent (1 orchestrator + 4 sub-agents) |
-| **Vertical**         | Financial Services                          |
-| **Framework**        | ADK                                         |
-| **Model**            | Gemini 3.1 Pro Preview                      |
+```mermaid
+classDiagram
+    class AgentDetails {
+        +String InteractionType: "Workflow"
+        +String Complexity: "Advanced"
+        +String AgentType: "Multi-Agent (1 orchestrator + 4 sub-agents)"
+        +String Vertical: "Financial Services"
+        +String Framework: "ADK"
+        +String Model: "Gemini 3.1 Pro Preview"
+    }
+```
 
 ### Key Features
 
-| Feature                            | Description                                                                                             |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| **Multi-Agent Orchestration**      | Orchestrator coordinates 4 specialized sub-agents via `AgentTool` in a sequential workflow              |
-| **Multimodal Document Extraction** | Gemini 3.1 Pro Preview reads loan application PDFs natively                                             |
-| **Structured Output**              | Each sub-agent returns validated Pydantic models via `output_schema` / `output_key`                     |
-| **Human-in-the-Loop (HITL)**       | Orchestrator pauses after pricing to present results and wait for explicit user approval                |
-| **LLM-as-Judge Gate**              | After-agent callback validates trajectory correctness and data grounding before showing responses       |
-| **Repair & Resume**                | Firestore workflow management tracks each step; workflow can pause on errors and resume from checkpoint |
-| **Before/After Callbacks**         | State checks before each sub-agent; state logging and issue detection after each sub-agent              |
-| **Before-Tool Callback**           | Process halt check prevents agents from executing when workflow is in error/pending state               |
+```mermaid
+mindmap
+  root((Key Features))
+    Multi-Agent Orchestration["Multi-Agent Orchestration<br/>Sequential workflow coordinating 4 specialized sub-agents via AgentTool"]
+    Multimodal Document Extraction["Multimodal Document Extraction<br/>Gemini 3.1 Pro Preview reads loan application PDFs natively"]
+    Structured Output["Structured Output<br/>Validated Pydantic models via output_schema / output_key"]
+    Human-in-the-Loop["Human-in-the-Loop (HITL)<br/>Orchestrator pauses after pricing for explicit approval"]
+    LLM-as-Judge Gate["LLM-as-Judge Gate<br/>Validates trajectory correctness and data grounding"]
+    Repair & Resume["Repair & Resume<br/>Firestore workflow tracks each step, pauses on errors and resumes"]
+    Before/After Callbacks["Before/After Callbacks<br/>State checks, state logging and issue detection"]
+    Before-Tool Callback["Before-Tool Callback<br/>Halts downstream agents when workflow is in error/pending state"]
+```
 
 ### Example Interaction
 
@@ -50,7 +55,7 @@ Agent: [Calls check_process_status -> initializes new process]
        [Calls PricingAgent -> calculates rate based on risk tier]
 
        Loan Application Summary:
-       - Business: Cymbal Coffee Roasters LLC
+       - Business: Yataí Coffee Roasters LLC
        - Owner: Jane Doe
        - Loan Amount: $150,000
        - Annual Revenue: $850,000
@@ -310,7 +315,7 @@ We have provided two sample PDFs in `data/sample_applications/`:
 - `sample_application_complete.pdf` -- Happy path (all fields present, strong financials)
 - `sample_application_incomplete.pdf` -- Same application with missing fields (triggers repair & resume)
 
-Both represent the same fictional business (Cymbal Coffee Roasters LLC / Jane Doe). The incomplete version is missing the loan amount requested to demonstrate the pause, repair & resume flow.
+Both represent the same fictional business (Yataí Coffee Roasters LLC / Jane Doe). The incomplete version is missing the loan amount requested to demonstrate the pause, repair & resume flow.
 
 If you want to generate them yourself, use:
 
@@ -411,39 +416,62 @@ Our evaluation treats the multi-agent system as a complete pipeline, measuring i
 
 ### Test Cases
 
-| Test Case                            | Description                                                                                                                            | Turns |
-| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- | ----- |
-| `happy_path_with_approval`           | Full end-to-end flow: submit complete PDF, process through all 4 sub-agents, user approves, loan decision finalized                    | 2     |
-| `stop_for_reparation_missing_fields` | Incomplete PDF (missing `loan_amount_requested`): agent stops after DocumentExtraction, reports missing fields, halts workflow         | 1     |
-| `resume_after_repair`                | Pre-repaired state in Firestore: agent detects completed DocumentExtraction, resumes from UnderwritingAgent, processes through Pricing | 1     |
+```mermaid
+graph TD
+    subgraph TestCases["Evaluation Test Cases"]
+        direction TB
+        TC1["<b>happy_path_with_approval</b><br/>Turns: 2<br/>Full end-to-end flow: submit complete PDF, process through all 4 sub-agents, user approves, loan decision finalized"]
+        TC2["<b>stop_for_reparation_missing_fields</b><br/>Turns: 1<br/>Incomplete PDF (missing loan_amount_requested): stops after DocumentExtraction, reports missing fields, halts workflow"]
+        TC3["<b>resume_after_repair</b><br/>Turns: 1<br/>Pre-repaired state in Firestore: detects completed DocumentExtraction, resumes from UnderwritingAgent, processes through Pricing"]
+    end
+```
 
 ### Evaluation Criteria
 
-| Criterion                                | Purpose                                                         | Threshold | Reference Required |
-| ---------------------------------------- | --------------------------------------------------------------- | --------- | ------------------ |
-| `rubric_based_tool_use_quality_v1`       | Validates tool call ordering using LLM judge against rubrics    | 0.8       | No                 |
-| `rubric_based_final_response_quality_v1` | Evaluates response completeness and clarity using LLM judge     | 0.8       | No                 |
-| `final_response_match_v2`                | Semantic equivalence of response to expected output (LLM-based) | 0.7       | Yes                |
+```mermaid
+classDiagram
+    class rubric_based_tool_use_quality_v1 {
+        +String Purpose: "Validates tool call ordering using LLM judge against rubrics"
+        +Float Threshold: 0.8
+        +Boolean ReferenceRequired: false
+    }
+    class rubric_based_final_response_quality_v1 {
+        +String Purpose: "Evaluates response completeness and clarity using LLM judge"
+        +Float Threshold: 0.8
+        +Boolean ReferenceRequired: false
+    }
+    class final_response_match_v2 {
+        +String Purpose: "Semantic equivalence of response to expected output (LLM-based)"
+        +Float Threshold: 0.7
+        +Boolean ReferenceRequired: true
+    }
+```
 
 ### Key Metrics
 
 - **Routing Accuracy (Tool Use Rubrics)**: Did the orchestrator call sub-agents in the correct order? The following ordering rules are enforced:
 
-  | Rubric                           | Rule                                                                           |
-  | -------------------------------- | ------------------------------------------------------------------------------ |
-  | `status_first`                   | `check_process_status` is called before any agent tools on the initial request |
-  | `extraction_before_underwriting` | `DocumentExtractionAgent` is called before `UnderwritingAgent`                 |
-  | `underwriting_before_pricing`    | `UnderwritingAgent` is called before `PricingAgent`                            |
-  | `pricing_before_decision`        | `PricingAgent` is called before `LoanDecisionAgent`                            |
-  | `approval_required`              | `LoanDecisionAgent` is only called after user approval                         |
+```mermaid
+flowchart TD
+    R1["<b>status_first</b><br/>check_process_status is called before any agent tools on initial request"]
+    R2["<b>extraction_before_underwriting</b><br/>DocumentExtractionAgent is called before UnderwritingAgent"]
+    R3["<b>underwriting_before_pricing</b><br/>UnderwritingAgent is called before PricingAgent"]
+    R4["<b>pricing_before_decision</b><br/>PricingAgent is called before LoanDecisionAgent"]
+    R5["<b>approval_required</b><br/>LoanDecisionAgent is only called after user approval"]
+
+    R1 --> R2 --> R3 --> R4 --> R5
+```
 
 - **Response Quality (Final Response Rubrics)**: Is the agent's output complete and actionable?
 
-  | Rubric                      | Rule                                                                                                                     |
-  | --------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-  | `loan_summary_completeness` | Response includes business name, owner, loan amount, revenue, eligibility, risk tier, rate, and payment                  |
-  | `clear_next_step`           | Response clearly indicates next action: approval prompt, completion confirmation, status report, or missing info request |
-  | `error_handling_clarity`    | When data is missing or an error occurs, the response clearly identifies what is missing or wrong                        |
+```mermaid
+graph TD
+    subgraph ResponseQualityRubrics["Response Quality Rubrics"]
+        Q1["<b>loan_summary_completeness</b><br/>Response includes business name, owner, loan amount, revenue, eligibility, risk tier, rate, and payment"]
+        Q2["<b>clear_next_step</b><br/>Response clearly indicates next action: approval prompt, completion confirmation, status report, or missing info request"]
+        Q3["<b>error_handling_clarity</b><br/>When data is missing or an error occurs, the response clearly identifies what is missing or wrong"]
+    end
+```
 
 - **Semantic Response Match**: Does the agent's final response convey the same information as the expected reference response? Threshold set to 0.7 to account for natural LLM wording variation.
 
