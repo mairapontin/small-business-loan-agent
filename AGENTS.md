@@ -1,15 +1,23 @@
-/**
- * @module: Small Business Loan Agent
- * @file: AGENTS.md
- * @description: Project instructions and architecture overview
- * @author: Maíra Pontin
- * @created: 2025-09-21
- * @updated: 2026-09-30T18:25:21
- * @version: 1.1.0
- * @reviewer:
- * @ai_reviewer:
- * @reviewer_date:
- */
+---
+module: Small Business Loan Agent
+description: Project instructions and architecture overview
+category: governance
+type: instructions
+example:
+id:
+status: Active
+version: 1.1.0
+author: Maíra Pontin
+ai_author: ai_made
+author_date: 2025-09-21
+reviewer:
+ai_reviewer:
+reviewer_date:
+updated: 2026-10-02T15:08:17
+file: AGENTS.md
+file_visibility: public
+source:
+---
 
 # Small Business Loan Agent — Project Instructions
 
