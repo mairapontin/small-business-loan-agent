@@ -4,7 +4,7 @@
  * @description: Express server, API routes, PORT config
  * @author: Maíra Pontin
  * @created: 2025-09-21
- * @updated: 260924_012808
+ * @updated: 2026-10-02T11:37:20
  * @version: 1.1.0
  * @reviewer:
  * @ai_reviewer:
@@ -54,7 +54,7 @@ function resolveApplication(
 
 async function startServer() {
   const app = express();
-  const PORT = parseInt(process.env.PORT || '3000', 10);
+  const PORT = parseInt(process.env.PORT || '3123', 10);
 
   app.use(express.json());
 

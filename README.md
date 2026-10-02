@@ -55,7 +55,7 @@ Agent: [Calls check_process_status -> initializes new process]
        [Calls PricingAgent -> calculates rate based on risk tier]
 
        Loan Application Summary:
-       - Business: Yataí Coffee Roasters LLC
+       - Business: Yataí Finance
        - Owner: Jane Doe
        - Loan Amount: $150,000
        - Annual Revenue: $850,000
@@ -315,7 +315,7 @@ We have provided two sample PDFs in `data/sample_applications/`:
 - `sample_application_complete.pdf` -- Happy path (all fields present, strong financials)
 - `sample_application_incomplete.pdf` -- Same application with missing fields (triggers repair & resume)
 
-Both represent the same fictional business (Yataí Coffee Roasters LLC / Jane Doe). The incomplete version is missing the loan amount requested to demonstrate the pause, repair & resume flow.
+Both represent the same fictional business (Yataí Finance / Jane Doe). The incomplete version is missing the loan amount requested to demonstrate the pause, repair & resume flow.
 
 If you want to generate them yourself, use:
 

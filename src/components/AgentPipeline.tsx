@@ -1,3 +1,16 @@
+/**
+ * @module: Small Business Loan Agent
+ * @file: src/components/AgentPipeline.tsx
+ * @description: React component rendering the 5-agent pipeline with HITL gate
+ * @author: Maíra Pontin
+ * @created: 2026-10-01T19:19:50
+ * @updated: 2026-10-01T19:19:50
+ * @version: 1.0.1
+ * @reviewer:
+ * @ai_reviewer:
+ * @reviewer_date:
+ */
+
 import React, { useState } from 'react';
 import { ProcessState, StepName, StepStatus } from '../types';
 import {
@@ -12,6 +25,9 @@ import {
   ChevronUp,
   Info,
   Globe,
+  UserCheck,
+  Check,
+  X,
 } from 'lucide-react';
 
 interface AgentPipelineProps {
@@ -37,27 +53,28 @@ const AGENTS: Array<{
   },
   {
     id: 'GeoVerificationAgent',
+    stepNumber: '02',
     title: 'Geo & Environmental Verification',
     subtitle: 'Checks property acreage vs CAR, deforestation, embargoes & legal reserve',
     icon: Globe,
   },
   {
     id: 'UnderwritingAgent',
-    stepNumber: '02',
+    stepNumber: '03',
     title: 'Underwriting Agent',
     subtitle: 'Checks rules & verifies against Yataí Finance internal records',
     icon: ShieldCheck,
   },
   {
     id: 'PricingAgent',
-    stepNumber: '03',
+    stepNumber: '04',
     title: 'Pricing Agent',
     subtitle: 'Determines risk tier, interest rates & amortization terms',
     icon: Calculator,
   },
   {
     id: 'LoanDecisionAgent',
-    stepNumber: '04',
+    stepNumber: '05',
     title: 'Loan Decision Agent',
     subtitle: 'Finalizes decision letter upon Human-in-the-Loop approval',
     icon: Award,
@@ -113,7 +130,7 @@ export const AgentPipeline: React.FC<AgentPipelineProps> = ({
     }
   };
 
-  // Determine HITL status between Pricing (03) and Loan Decision (04)
+  // Determine HITL status between Pricing (04) and Loan Decision (05)
   const pricingStatus = processState?.steps.PricingAgent?.status;
   const decisionStatus = processState?.steps.LoanDecisionAgent?.status;
   const isPendingHumanApproval =
@@ -248,7 +265,7 @@ export const AgentPipeline: React.FC<AgentPipelineProps> = ({
                 )}
               </div>
 
-              {/* Human-in-the-Loop Review Step after 03 Pricing Agent */}
+              {/* Human-in-the-Loop Review Step after 04 Pricing Agent */}
               {agent.id === 'PricingAgent' && (
                 <div
                   className={`px-5 py-3 transition-colors border-l-4 ${
@@ -323,7 +340,7 @@ export const AgentPipeline: React.FC<AgentPipelineProps> = ({
                       ) : (
                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
                           <Clock className="w-3.5 h-3.5 text-slate-400" />
-                          Waiting on Step 03
+                          Waiting on Step 04
                         </span>
                       )}
                     </div>

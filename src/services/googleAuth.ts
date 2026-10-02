@@ -6,6 +6,8 @@ import {
   onAuthStateChanged,
   signOut,
   User,
+  UserCredential,
+  OAuthCredential,
 } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
 
@@ -59,9 +61,9 @@ export const initAuth = (
 export const googleSignIn = async (): Promise<{ user: User; accessToken: string } | null> => {
   try {
     isSigningIn = true;
-    const result = await signInWithPopup(auth, provider);
-    const credential = GoogleAuthProvider.credentialFromResult(result);
-    if (!credential?.accessToken) {
+    const result: UserCredential = await signInWithPopup(auth, provider);
+    const credential: OAuthCredential | null = GoogleAuthProvider.credentialFromResult(result);
+    if (!result?.user || !credential?.accessToken) {
       throw new Error('Failed to get access token from Google Auth');
     }
 

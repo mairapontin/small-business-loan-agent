@@ -38,7 +38,7 @@ const AGRO = 'SBL-2025-07788';
 const BLOCKED = 'SBL-2025-08123';
 
 const BUSINESS_BY_LOAN: Record<string, string> = {
-  [CLEAN]: 'Cymbal Coffee Roasters LLC',
+  [CLEAN]: 'Yataí Finance',
   [AGRO]: 'Fazenda Santa Clara Agropastoril LTDA',
   [BLOCKED]: 'Agropecuária Rio Verde S.A.',
 };
@@ -138,7 +138,7 @@ test('completed steps are reported back to Gemini as function responses', async 
   const afterDocument = JSON.stringify(calls[1].contents);
   assert.match(afterDocument, /functionResponse/);
   assert.match(afterDocument, /run_document_extraction/);
-  assert.match(afterDocument, /Cymbal Coffee Roasters/);
+  assert.match(afterDocument, /Yataí Finance/);
   assert.match(JSON.stringify(calls[3].contents), /run_underwriting/);
 });
 
