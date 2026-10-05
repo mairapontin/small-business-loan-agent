@@ -1,16 +1,33 @@
 import React from 'react';
-import { EligibilityRule } from '../types';
-import { ShieldCheck, Database, CheckCircle2, AlertCircle, FileSpreadsheet } from 'lucide-react';
+import { EligibilityRule, ProcessState } from '../types';
+import { ShieldCheck, Database, CheckCircle2, AlertCircle, FileSpreadsheet, FileDown } from 'lucide-react';
+import { downloadLoanUnderwritingPdf } from '../services/pdfReportGenerator';
 
 interface UnderwritingInspectorProps {
   rules: EligibilityRule[];
   internalRecords: Record<string, any>;
+  currentProcess?: ProcessState | null;
+  onDownloadPdf?: () => void;
 }
 
 export const UnderwritingInspector: React.FC<UnderwritingInspectorProps> = ({
   rules,
   internalRecords,
+  currentProcess,
+  onDownloadPdf,
 }) => {
+  const handleExportPdf = () => {
+    if (onDownloadPdf) {
+      onDownloadPdf();
+    } else if (currentProcess) {
+      downloadLoanUnderwritingPdf({
+        processState: currentProcess,
+        rules,
+        internalRecords,
+      });
+    }
+  };
+
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-xs flex flex-col h-[650px] overflow-hidden">
       <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
@@ -20,9 +37,22 @@ export const UnderwritingInspector: React.FC<UnderwritingInspectorProps> = ({
             Underwriting Knowledge Base & Rules Engine
           </h2>
         </div>
-        <span className="text-[11px] text-slate-500 font-mono">
-          eligibility_rules.json ({rules.length} rules)
-        </span>
+        <div className="flex items-center gap-3">
+          {currentProcess && (
+            <button
+              type="button"
+              onClick={handleExportPdf}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-xs transition-colors"
+              title="Download PDF Underwriting and Rules Audit Report for the active loan"
+            >
+              <FileDown className="w-3.5 h-3.5 text-blue-600" />
+              <span>Export Rules & Decision PDF</span>
+            </button>
+          )}
+          <span className="text-[11px] text-slate-500 font-mono">
+            eligibility_rules.json ({rules.length} rules)
+          </span>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-5 space-y-6">

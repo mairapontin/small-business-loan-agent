@@ -4,8 +4,8 @@
  * @description: ADK integration plan — from adk-sim to real Gemini root agent
  * @author: Maíra Pontin
  * @created: 2025-09-21
- * @updated: 2026-09-28T18:21:42
- * @version: 1.1.0
+ * @updated: 2026-10-05T08:58:30
+ * @version: 1.2.0
  * @reviewer:
  * @ai_reviewer:
  * @reviewer_date:
@@ -13,9 +13,9 @@
 
 # ADK Integration Plan — From `adk-sim` to Real Gemini Root Agent
 
-## Status: Phase 1-6 complete (6.4 secret rotation pending)
+## Status: All Phases 1-6 Complete (100% Complete)
 
-This document describes the evolution from the current `adk-sim` mock orchestrator to a real Google ADK root agent powered by Gemini. Phase 1-5 were completed on 2026-09-23. Phase 6 (production hardening) is complete as of 2026-09-24: rate limiting (sliding-window, 60 calls/min default), response caching (in-memory, 5-min TTL), and structured monitoring (latency, success/failure, per-loan tracking) are all wired into `RealAdkOrchestrator` and exposed via `/api/health`. Only 6.4 (secret rotation) remains.
+This document describes the evolution from the current `adk-sim` mock orchestrator to a real Google ADK root agent powered by Gemini. Phase 1-5 were completed on 2026-09-23. Phase 6 (production hardening) is 100% complete as of 2026-10-05: rate limiting (sliding-window, 60 calls/min default), response caching (in-memory, 5-min TTL), structured monitoring (latency, success/failure, per-loan tracking), and secret rotation (`rotateApiKey()`, `POST /api/admin/rotate-key`, fingerprint telemetry) are all wired into `RealAdkOrchestrator` and exposed via `/api/health`.
 
 ---
 
@@ -432,9 +432,9 @@ In-memory response cache in `src/services/responseCache.ts`. SHA-256 hash of req
 
 Structured monitoring in `src/services/monitor.ts`. Every Gemini call is recorded with method name, latency, success/failure, error message, and loan request ID. Console logging in `[INFO]`/`[ERROR]` format. Stats (total calls, failure rate, avg latency) exposed via `/api/health`.
 
-#### 6.4 Secret rotation (pending)
+#### 6.4 Secret rotation ✅ Complete (2026-10-05)
 
-Implement a mechanism to rotate the `GOOGLE_GENAI_API_KEY` without restarting the server.
+Implemented `rotateApiKey(newKey)` in `src/services/genai.ts` to rotate `GOOGLE_GENAI_API_KEY` and re-instantiate the `GoogleGenAI` client without restarting the server process. Exposes status, last rotation timestamp, and key fingerprint in `/api/health` and accepts live rotation via `POST /api/admin/rotate-key`. Fully covered by offline regression tests in `tests/adk_doubles.test.ts`.
 
 ---
 
@@ -549,15 +549,15 @@ The ADK integration is complete when:
 | Phase 3: Wire Tool-Calling | 2-3 days | ✅ Complete (2026-09-23) | Phase 2 |
 | Phase 4: Update UI | 1 day | ✅ Complete (2026-09-23) | Phase 2 |
 | Phase 5: Testing & Validation | 2-3 days | ✅ Complete (2026-09-23) | Phase 3, 4 |
-| Phase 6: Production Hardening | Ongoing | ✅ 6.1-6.3 Complete (2026-09-24); 6.4 pending | Phase 5 |
-| **Remaining** | **6.4 (secret rotation) only** | | |
+| Phase 6: Production Hardening | 1-2 weeks | ✅ Complete (2026-10-05) | Phase 5 |
+| **All Phases** | **Complete** | **100% Complete** | |
 
 ---
 
 ## Next Steps
 
-1. **Get API key** — set `GOOGLE_GENAI_API_KEY` in `.env` to enable real Gemini calls (currently falls back to deterministic)
-2. **Phase 6.4: Secret rotation** — rotate `GOOGLE_GENAI_API_KEY` without server restart
+1. **Production Deployment** — System runs in production bundle with all 3 drivers, rate limiting, cache, monitoring, and live secret rotation.
+2. **Key Rotation** — Use `POST /api/admin/rotate-key` or `rotateApiKey()` to update keys anytime with zero downtime.
 
 ## GitHub Issues
 

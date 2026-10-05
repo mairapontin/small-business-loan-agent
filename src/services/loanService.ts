@@ -23,6 +23,7 @@ import {
   StepName,
   StepStatus,
   UnderwritingReport,
+  SpecializedReports,
 } from '../types';
 
 export const ELIGIBILITY_RULES: EligibilityRule[] = [
@@ -529,6 +530,31 @@ export class ProcessStateService {
       state.steps[stepName].error_message = errorMessage;
     }
 
+    this.store.set(requestId, state);
+    return state;
+  }
+
+  static setSpecializedReports(
+    requestId: string,
+    reports: Partial<SpecializedReports>
+  ): ProcessState | null {
+    const state = this.store.get(requestId);
+    if (!state) return null;
+    state.specialized_reports = {
+      ...(state.specialized_reports || {}),
+      ...reports,
+    } as SpecializedReports;
+    this.store.set(requestId, state);
+    return state;
+  }
+
+  static setMethodology(
+    requestId: string,
+    methodology: any
+  ): ProcessState | null {
+    const state = this.store.get(requestId);
+    if (!state) return null;
+    state.methodology = methodology;
     this.store.set(requestId, state);
     return state;
   }

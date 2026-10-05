@@ -23,7 +23,9 @@ globalThis.fetch = (async () => {
   throw new Error('network access is disabled in the offline Gemini suite');
 }) as typeof fetch;
 
-const { genAI } = await import('../src/services/genai');
+const { genAI, rotateApiKey, getApiKeyStatus } = await import(
+  '../src/services/genai'
+);
 const { orchestratorFor, applyGeoRepairEvidence } = await import(
   '../src/services/orchestrator'
 );
@@ -38,7 +40,7 @@ const AGRO = 'SBL-2025-07788';
 const BLOCKED = 'SBL-2025-08123';
 
 const BUSINESS_BY_LOAN: Record<string, string> = {
-  [CLEAN]: 'Yataí Finance',
+  [CLEAN]: SAMPLE_APPLICATIONS[CLEAN].data.business_name,
   [AGRO]: 'Fazenda Santa Clara Agropastoril LTDA',
   [BLOCKED]: 'Agropecuária Rio Verde S.A.',
 };
@@ -138,7 +140,7 @@ test('completed steps are reported back to Gemini as function responses', async 
   const afterDocument = JSON.stringify(calls[1].contents);
   assert.match(afterDocument, /functionResponse/);
   assert.match(afterDocument, /run_document_extraction/);
-  assert.match(afterDocument, /Yataí Finance/);
+  assert.match(afterDocument, /(?:Cymbal|Yataí) (?:Coffee Roasters|Finance)/);
   assert.match(JSON.stringify(calls[3].contents), /run_underwriting/);
 });
 
@@ -227,3 +229,34 @@ test('Gemini trusting repair evidence does not skip the fresh geo re-verificatio
   );
   assert.equal(resumed.requiresApproval, true);
 });
+
+test('Phase 6.4 secret rotation: rotates key at runtime without process restart', () => {
+  const initial = getApiKeyStatus();
+  assert.equal(initial.configured, true);
+
+  const res = rotateApiKey('rotated-test-key-9988');
+  assert.equal(res.success, true);
+  assert.match(res.fingerprint!, /^rota\.\.\.9988$/);
+  assert.equal(process.env.GOOGLE_GENAI_API_KEY, 'rotated-test-key-9988');
+
+  const updated = getApiKeyStatus();
+  assert.equal(updated.configured, true);
+  assert.equal(updated.fingerprint, 'rota...9988');
+
+  // Rotate back to original test double
+  rotateApiKey('offline-test-double');
+});
+
+test('Caso 2 degradação graciosa: alerts user and exposes methodology on API failure', async () => {
+  const application = structuredClone(SAMPLE_APPLICATIONS[CLEAN].data);
+  const result = await orchestratorFor('adk').start(CLEAN, application);
+
+  assert.equal(result.degraded, true);
+  assert.ok(result.degradationReason);
+  assert.match(result.degradationReason, /contingência determinística/);
+  assert.ok(result.methodology);
+  assert.equal(result.methodology.isDegraded, true);
+  assert.match(result.content, /AVISO DE DEGRADAÇÃO GRACIOSA/);
+});
+
+

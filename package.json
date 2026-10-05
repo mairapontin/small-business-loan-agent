@@ -12,14 +12,17 @@
   "dependencies": {
     "@firebase/auth": "^1.13.6",
     "@google/genai": "latest",
+    "d3": "^7.9.0",
     "express": "^4.21.2",
     "firebase": "^12.19.0",
+    "jspdf": "^4.2.1",
     "lucide-react": "^0.475.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.0.9",
+    "@types/d3": "^7.4.3",
     "@types/express": "^4.17.21",
     "@types/node": "^22.13.5",
     "@types/react": "^18.3.18",

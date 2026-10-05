@@ -15,7 +15,7 @@ import express, { Request, Response } from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
-import { genAI } from './src/services/genai';
+import { genAI, rotateApiKey, getApiKeyStatus } from './src/services/genai';
 import { getRateLimitStats } from './src/services/rateLimiter';
 import { getCacheStats } from './src/services/responseCache';
 import { getMonitorStats } from './src/services/monitor';
@@ -65,9 +65,23 @@ async function startServer() {
       runtime: 'node',
       service: 'small-business-loan-agent',
       genai: genAI ? 'configured' : 'missing-api-key',
+      secretRotation: getApiKeyStatus(),
       rateLimit: getRateLimitStats(),
       cache: getCacheStats(),
       monitor: getMonitorStats(),
+    });
+  });
+
+  app.post('/api/admin/rotate-key', (req: Request, res: Response) => {
+    const { apiKey } = req.body;
+    if (typeof apiKey !== 'string') {
+      return res.status(400).json({ error: 'Missing or invalid apiKey in request body' });
+    }
+    const result = rotateApiKey(apiKey);
+    res.json({
+      message: 'API key successfully rotated without restart',
+      status: result,
+      genai: genAI ? 'configured' : 'missing-api-key',
     });
   });
 

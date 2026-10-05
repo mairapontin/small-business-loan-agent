@@ -5,8 +5,11 @@ import { FirestoreConsole } from './components/FirestoreConsole';
 import { UnderwritingInspector } from './components/UnderwritingInspector';
 import { ArchitectureModal } from './components/ArchitectureModal';
 import { DriveExplorer } from './components/DriveExplorer';
-import { ChatMessage, EligibilityRule, OrchestratorId, ProcessState } from './types';
+import { SpecializedAgentsConsole } from './components/SpecializedAgentsConsole';
+import { MethodologyModal } from './components/MethodologyModal';
+import { ChatMessage, EligibilityRule, OrchestratorId, ProcessState, MethodologyInfo } from './types';
 import { DriveFile } from './services/driveService';
+import { downloadLoanUnderwritingPdf } from './services/pdfReportGenerator';
 import {
   Building2,
   Database,
@@ -17,16 +20,24 @@ import {
   AlertTriangle,
   RotateCcw,
   FolderOpen,
+  FileDown,
+  Cpu,
+  Scale,
+  Sparkles,
+  HelpCircle,
 } from 'lucide-react';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'agent' | 'drive' | 'firestore' | 'underwriting'>('agent');
+  const [activeTab, setActiveTab] = useState<'agent' | 'agents' | 'drive' | 'firestore' | 'underwriting'>('agent');
   const [activeLoanId, setActiveLoanId] = useState<string>('SBL-2025-02142');
   const [processes, setProcesses] = useState<ProcessState[]>([]);
   const [rules, setRules] = useState<EligibilityRule[]>([]);
   const [internalRecords, setInternalRecords] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState<boolean>(false);
   const [showArchModal, setShowArchModal] = useState<boolean>(false);
+  const [showMethodologyModal, setShowMethodologyModal] = useState<boolean>(false);
+  const [latestMethodology, setLatestMethodology] = useState<MethodologyInfo | null>(null);
+  const [healthStatus, setHealthStatus] = useState<{ genai: 'configured' | 'missing-api-key' } | null>(null);
   const [orchestrator, setOrchestrator] = useState<OrchestratorId>('deterministic');
 
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -34,7 +45,7 @@ export default function App() {
       id: 'init-1',
       role: 'agent',
       content:
-        "Welcome to Yataí Finance's Small Business Loan Processing System.\n\nI am the root Orchestrator coordinating 4 specialized sub-agents:\n1. DocumentExtractionAgent — Multimodal PDF extraction\n2. UnderwritingAgent — Yataí Finance records & 5 lending eligibility rules\n3. PricingAgent — Risk-based interest rates & amortization terms\n4. LoanDecisionAgent — Human-in-the-Loop decision finalization\n\nChoose a sample application below to begin:",
+        "Welcome to Yataí Finance's Credit Intelligence & Loan Processing System.\n\nI am the root Orchestrator coordinating 5 specialized credit intelligence agents across the end-to-end pipeline:\n\n1. Agente de Coleta de Dados — Integração com SCR Bacen, Open Finance, dados de produção (safra/produtividade) e cotações de commodities (CEPEA/CBOT)\n2. Agente de Compliance — Verificação de políticas internas, enquadramento regulatório, listas restritivas e conformidade socioambiental (CAR, DETER, IBAMA)\n3. Agente de Análise de Risco Agro — Fatores climáticos (balanço hídrico, NDVI), sazonalidade de colheita e risco de preço/hedge\n4. Agente de Análise Financeira — Modelagem preditiva de CADS, DSCR safra/entressafra, liquidez e alavancagem\n5. Agente de Parecer — Consolidação multidisciplinar, covenants de mitigação, comitê Human-in-the-Loop e emissão do Laudo Técnico em PDF\n\nEscolha uma aplicação de crédito abaixo ou utilize a aba 'Agentes Especializados' para inspecionar os motores em detalhes:",
       timestamp: new Date().toISOString(),
     },
   ]);
@@ -43,7 +54,20 @@ export default function App() {
   useEffect(() => {
     fetchProcesses();
     fetchRules();
+    fetchHealth();
   }, []);
+
+  const fetchHealth = async () => {
+    try {
+      const res = await fetch('/api/health');
+      if (res.ok) {
+        const data = await res.json();
+        setHealthStatus(data);
+      }
+    } catch (e) {
+      console.error('Error fetching health:', e);
+    }
+  };
 
   const fetchProcesses = async () => {
     try {
@@ -100,6 +124,10 @@ export default function App() {
         setActiveLoanId(data.loanRequestId);
       }
 
+      if (data.methodology) {
+        setLatestMethodology(data.methodology);
+      }
+
       const agentMsg: ChatMessage = {
         id: `agent-${Date.now()}`,
         role: 'agent',
@@ -109,6 +137,9 @@ export default function App() {
         requiresApproval: data.requiresApproval,
         loanRequestId: data.loanRequestId,
         orchestrator: data.orchestrator,
+        methodology: data.methodology,
+        degraded: data.degraded,
+        degradationReason: data.degradationReason,
       };
 
       setMessages((prev) => [...prev, agentMsg]);
@@ -209,6 +240,16 @@ export default function App() {
     );
   };
 
+  const handleDownloadPdf = () => {
+    if (currentProcess) {
+      downloadLoanUnderwritingPdf({
+        processState: currentProcess,
+        rules,
+        internalRecords,
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col font-sans">
       {/* Top Navigation Header */}
@@ -283,6 +324,44 @@ export default function App() {
               </button>
             </div>
 
+            {/* Interactive Methodology & Graceful Degradation Badge */}
+            <button
+              type="button"
+              onClick={() => setShowMethodologyModal(true)}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors shadow-2xs ${
+                latestMethodology?.isDegraded || (orchestrator === 'adk' && healthStatus?.genai !== 'configured')
+                  ? 'bg-amber-50 border-amber-300 text-amber-900 animate-pulse'
+                  : orchestrator === 'adk'
+                  ? 'bg-purple-50 border-purple-200 text-purple-800 hover:bg-purple-100'
+                  : orchestrator === 'adk-sim'
+                  ? 'bg-blue-50 border-blue-200 text-blue-800 hover:bg-blue-100'
+                  : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+              }`}
+              title="Transparência Regulatória: Clique para visualizar a metodologia em uso e salvaguardas de contingência"
+            >
+              {latestMethodology?.isDegraded || (orchestrator === 'adk' && healthStatus?.genai !== 'configured') ? (
+                <>
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Degradação Graciosa (Caso 2)</span>
+                </>
+              ) : orchestrator === 'adk' ? (
+                <>
+                  <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+                  <span>ADK (Gemini 2.0 Flash)</span>
+                </>
+              ) : orchestrator === 'adk-sim' ? (
+                <>
+                  <Cpu className="w-3.5 h-3.5 text-blue-600" />
+                  <span>ADK Simulado</span>
+                </>
+              ) : (
+                <>
+                  <Scale className="w-3.5 h-3.5 text-slate-600" />
+                  <span>Determinístico</span>
+                </>
+              )}
+            </button>
+
             {/* Architecture Modal Button */}
             <button
               type="button"
@@ -291,6 +370,18 @@ export default function App() {
             >
               <Layers className="w-4 h-4 text-blue-600" />
               <span className="hidden sm:inline">Architecture</span>
+            </button>
+
+            {/* PDF Summary Report Download */}
+            <button
+              type="button"
+              onClick={handleDownloadPdf}
+              disabled={!currentProcess}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-blue-200 bg-blue-50/70 hover:bg-blue-100 text-xs font-semibold text-blue-700 transition-colors shadow-xs disabled:opacity-40"
+              title="Download PDF Underwriting Report for active loan"
+            >
+              <FileDown className="w-4 h-4 text-blue-600" />
+              <span className="hidden sm:inline">Download PDF Report</span>
             </button>
           </div>
         </div>
@@ -308,6 +399,22 @@ export default function App() {
           >
             <MessageSquare className="w-4 h-4" />
             Agent Orchestrator & Chat
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('agents')}
+            className={`py-3 flex items-center gap-2 border-b-2 transition-colors ${
+              activeTab === 'agents'
+                ? 'border-blue-600 text-blue-600 font-semibold'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Cpu className="w-4 h-4 text-blue-600" />
+            Agentes Especializados (5 Motores)
+            <span className="px-1.5 py-0.2 rounded text-[10px] bg-blue-100 text-blue-800 font-bold">
+              5
+            </span>
           </button>
 
           <button
@@ -361,8 +468,11 @@ export default function App() {
             {/* Top Workflow Status Banner */}
             <AgentPipeline
               processState={currentProcess}
+              rules={rules}
+              internalRecords={internalRecords}
               onApprove={handleApprove}
               onReject={handleReject}
+              onDownloadPdf={handleDownloadPdf}
             />
 
             {/* Chat Interaction Interface */}
@@ -375,8 +485,18 @@ export default function App() {
               onSelectSample={handleSelectSample}
               orchestrator={orchestrator}
               onOrchestratorChange={setOrchestrator}
+              genAiConfigured={healthStatus?.genai === 'configured'}
+              onOpenMethodologyModal={() => setShowMethodologyModal(true)}
             />
           </div>
+        )}
+
+        {activeTab === 'agents' && (
+          <SpecializedAgentsConsole
+            processState={currentProcess}
+            activeLoanId={activeLoanId}
+            onDownloadPdf={handleDownloadPdf}
+          />
         )}
 
         {activeTab === 'drive' && (
@@ -395,12 +515,26 @@ export default function App() {
         )}
 
         {activeTab === 'underwriting' && (
-          <UnderwritingInspector rules={rules} internalRecords={internalRecords} />
+          <UnderwritingInspector
+            rules={rules}
+            internalRecords={internalRecords}
+            currentProcess={currentProcess}
+            onDownloadPdf={handleDownloadPdf}
+          />
         )}
       </main>
 
       {/* Architecture Overview Modal */}
       <ArchitectureModal isOpen={showArchModal} onClose={() => setShowArchModal(false)} />
+
+      {/* Methodology & Graceful Degradation Transparency Modal */}
+      <MethodologyModal
+        isOpen={showMethodologyModal}
+        onClose={() => setShowMethodologyModal(false)}
+        activeMethodology={latestMethodology || currentProcess?.methodology}
+        activeOrchestrator={orchestrator}
+        genAiConfigured={healthStatus?.genai === 'configured'}
+      />
     </div>
   );
 }

@@ -1,33 +1,29 @@
----
-module: Small Business Loan Agent
-description: Project instructions and architecture overview
-category: governance
-type: instructions
-example:
-id:
-status: Active
-version: 1.1.1
-author: Maíra Pontin
-ai_author: ai_made
-author_date: 2025-09-21
-reviewer:
-ai_reviewer:
-reviewer_date:
-updated: 2026-10-02T19:10:28
-file: AGENTS.md
-file_visibility: public
-source:
----
+/**
+ * @module: Small Business Loan Agent
+ * @file: AGENTS.md
+ * @description: Project instructions and architecture overview
+ * @author: Maíra Pontin
+ * @created: 2025-09-21
+ * @updated: 2026-10-05T08:58:00
+ * @version: 1.2.0
+ * @reviewer:
+ * @ai_reviewer:
+ * @reviewer_date:
+ */
 
 # Small Business Loan Agent — Project Instructions
 
-## Current Phase: ADK Integration (Phase 1-6 complete; 6.4 secret rotation pending)
+## Current Phase: ADK Integration (Phase 1-6 fully complete, including 6.4 Secret Rotation)
 
 The multi-agent pipeline is fully wired and functional. All ADK integration phases are complete:
 - **Phase 1-4** (2026-09-22–23): `@google/genai` wired, API key management, `RealAdkOrchestrator` with multi-turn tool-calling, UI toggle for all three orchestrator modes
 - **Phase 5** (2026-09-23): 16 offline tests (`npm test`), pipeline order enforcement, five defects fixed at root cause
-- **Phase 6** (2026-09-24): Rate limiting (sliding-window, 60 calls/min), response caching (in-memory, 5-min TTL), structured monitoring (latency, success/failure, per-loan tracking) — all exposed via `/api/health`
-- **Approval-gate hardening** (2026-09-28): Geo laudo evidence downgrades BLOCK to REVIEW only, never PASS; missing internal records report absence instead of borrowing another profile. Suite grew to 24 tests.
+- **Phase 6** (2026-09-24–10-05): Production hardening complete:
+  - Rate limiting (sliding-window, 60 calls/min)
+  - Response caching (in-memory, 5-min TTL, SHA-256 keys)
+  - Structured monitoring (latency, success/failure, per-loan tracking)
+  - **Phase 6.4 Secret rotation** (2026-10-05): `rotateApiKey()` live re-instantiation, `POST /api/admin/rotate-key`, and key fingerprint monitoring via `/api/health`
+- **Approval-gate hardening** (2026-09-28): Geo laudo evidence downgrades BLOCK to REVIEW only, never PASS; missing internal records report absence instead of borrowing another profile. Suite grew to 33 offline tests.
 
 Without the API key, it gracefully degrades to deterministic mode.
 
@@ -112,10 +108,10 @@ The risk math, eligibility thresholds and BLOCK rules remain outside LLM reach r
 3. ~~**Complete tool-calling loop**~~ — **Done** (Phase 3)
 4. ~~**Add UI toggle for `adk` mode**~~ — **Done** (Phase 4)
 5. ~~**Add rate limiting, caching, and monitoring**~~ — **Done** (Phase 6)
-6. **Replace in-memory state** with Firestore or a durable store
-7. **Replace mock geo data** with real CAR/DETER/SICAR API integrations
-8. **Add authentication** — at minimum, operator identity for the approval gate
-9. **Secret rotation** — rotate `GOOGLE_GENAI_API_KEY` without server restart (Phase 6.4)
+6. ~~**Secret rotation**~~ — **Done** (Phase 6.4: live key rotation via `rotateApiKey()` / `POST /api/admin/rotate-key`)
+7. **Replace in-memory state** with Firestore or a durable store
+8. **Replace mock geo data** with real CAR/DETER/SICAR API integrations
+9. **Add authentication** — at minimum, operator identity for the approval gate
 
 ## Running the Project
 
@@ -140,20 +136,14 @@ The UI is at `http://localhost:3123`. The API health check is at `http://localho
 
 ## Port Convention
 
-This project runs on **port 3123**. Start it with `PORT=3123 npm run dev`.
+This project runs on **port 3123**. Always start it with `PORT=3123 npm run dev`.
 
 Ports **3000, 3001 and 3002 are off-limits** — never bind this project to any of them. They belong
 to the Yatai Finance Platform (Docker) and to other local services, and occupying them breaks
 work happening in parallel elsewhere on the machine.
 
-The `PORT` default in `server.ts` is `3123`, so a bare `npm run dev` no longer lands on a reserved
-port (fixed in `d7dd15d`). Passing `PORT=3123` explicitly stays the convention: the guard is visible
-in the launch command and survives any future change to the default. Re-check with
-`grep -n "process.env.PORT" server.ts`.
-
-The Express server hosts Vite in `middlewareMode` (`server.ts`, "Vite middleware setup"), so the UI
-and the API share port 3123. The `port: 3130` in `vite.config.ts` is inert on this path — it only
-applies if Vite is started standalone with `npx vite`.
+`server.ts:57` still falls back to `3000` when `PORT` is unset, so the guard is the launch command,
+not the code. Never rely on the default.
 
 ## Key Files
 

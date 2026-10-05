@@ -159,6 +159,157 @@ export interface ProcessState {
   updated_at: string;
   steps: Record<StepName, StepState>;
   issues: ProcessIssue[];
+  specialized_reports?: SpecializedReports;
+  methodology?: MethodologyInfo;
+}
+
+export interface MethodologyInfo {
+  id: OrchestratorId;
+  name: string;
+  badge: string;
+  description: string;
+  isDegraded?: boolean;
+  degradationReason?: string;
+  aiModel?: string;
+  activeFeatures: string[];
+}
+
+// --- Specialized Multi-Agent Intelligence Reports -------------------------
+
+export interface ScrBacenData {
+  total_exposure_brl: number;
+  credit_limit_used_pct: number;
+  overdue_operations_count: number;
+  historical_delay_max_days: number;
+  sfn_institutions_count: number;
+  standing: 'REGULAR' | 'WATCHLIST' | 'RESTRICTED';
+  last_consulted_month: string;
+}
+
+export interface OpenFinanceData {
+  connected_accounts_count: number;
+  verified_average_monthly_inflow_brl: number;
+  revenue_reconciliation_pct: number;
+  cash_burn_rate_monthly_brl: number;
+  bank_standing: 'EXCELLENT' | 'STABLE' | 'IRREGULAR';
+}
+
+export interface ProductionAgroData {
+  crop: string; // e.g. 'Soja'
+  crop_year: string; // e.g. '2025/2026'
+  planted_area_ha: number;
+  historical_yield_sc_ha: number[];
+  average_yield_sc_ha: number;
+  regional_benchmark_conab_sc_ha: number;
+  yield_vs_benchmark_pct: number;
+}
+
+export interface CommodityPricesData {
+  cepea_esalq_spot_brl: number; // R$ / saca
+  cbot_future_usd_bushel: number; // USD / bushel
+  basis_regional_usd_bushel: number; // Basis Paranaguá / Rondonópolis
+  effective_parity_brl_sc: number;
+  quotation_date: string;
+}
+
+export interface DataCollectionSnapshot {
+  loan_request_id: string;
+  scr: ScrBacenData;
+  open_finance: OpenFinanceData;
+  production: ProductionAgroData;
+  commodities: CommodityPricesData;
+  event_time: string;
+  available_time: string;
+}
+
+export interface ComplianceReport {
+  loan_request_id: string;
+  overall_status: 'CLEARED' | 'REVIEW' | 'BLOCKED';
+  internal_policies_cleared: boolean;
+  regulatory_cleared: boolean;
+  socioenvironmental_cleared: boolean;
+  car_status: 'REGULAR' | 'MISMATCH' | 'IRREGULAR';
+  deforestation_alerts: number;
+  ibama_embargoes: number;
+  legal_reserve_compliance_pct: number;
+  restrictive_lists: {
+    pep: 'CLEARED' | 'FLAGGED';
+    slave_labor_blacklist: 'CLEARED' | 'FLAGGED';
+    ofac_sanctions: 'CLEARED' | 'FLAGGED';
+  };
+  blocking_findings: string[];
+  risk_flags: string[];
+  audit_notes: string;
+}
+
+export interface AgroRiskReport {
+  loan_request_id: string;
+  overall_risk_level: 'LOW' | 'MODERATE' | 'HIGH';
+  climate: {
+    water_balance_index: number; // 0 to 1 scale
+    water_balance_status: 'FAVORABLE' | 'MODERATE_DEFICIT' | 'SEVERE_DROUGHT';
+    accumulated_rainfall_mm: number;
+    historical_average_rainfall_mm: number;
+    ndvi_vegetative_vigor_index: number;
+    ndvi_anomaly_pct: number;
+  };
+  seasonality: {
+    planting_window_status: 'OPTIMAL' | 'ACCEPTABLE' | 'LATE';
+    expected_yield_loss_pct: number;
+    stressed_yield_sc_ha: number;
+    harvest_schedule: string;
+  };
+  price_and_hedge: {
+    hedged_production_pct: number;
+    unhedged_exposure_pct: number;
+    break_even_price_brl_sc: number;
+    margin_safety_pct: number;
+    hedge_instrument: string;
+  };
+  risk_mitigation_covenants: string[];
+}
+
+export interface FinancialAnalysisReport {
+  loan_request_id: string;
+  cash_flow_viability: 'HEALTHY' | 'ADEQUATE' | 'TIGHT' | 'DISTRESSED';
+  cads_brl: number; // Cash Available for Debt Service
+  dscr_safra: number; // DSCR principal safra
+  dscr_entressafra: number; // DSCR ciclo completo
+  liquidity_ratio: number; // Current liquidity
+  leverage_ratio: number; // Total Debt / Revenue
+  margin_liquidity_shortfall_brl: number; // Potential derivative margin call risk
+  break_even_yield_sc_ha: number;
+  debt_service_brl: number;
+  replacement_capex_brl: number;
+  financial_notes: string;
+}
+
+export interface OpinionReport {
+  loan_request_id: string;
+  decision_letter_id: string;
+  recommendation: 'FAVORABLE' | 'FAVORABLE_WITH_CONDITIONS' | 'UNFAVORABLE';
+  executive_summary: string;
+  recommended_amount: string;
+  recommended_rate: string;
+  recommended_term: string;
+  risk_tier: string;
+  covenants_and_safeguards: string[];
+  pending_policy_items: string[];
+  hitl_operator_signoff: {
+    required: boolean;
+    status: 'PENDING' | 'APPROVED' | 'REJECTED';
+    operator?: string;
+    timestamp?: string;
+  };
+  dossier_timestamp: string;
+}
+
+export interface SpecializedReports {
+  data_collection: DataCollectionSnapshot;
+  compliance: ComplianceReport;
+  agro_risk: AgroRiskReport;
+  financial_analysis: FinancialAnalysisReport;
+  opinion: OpinionReport;
 }
 
 export interface ChatMessage {
@@ -170,6 +321,9 @@ export interface ChatMessage {
   requiresApproval?: boolean;
   loanRequestId?: string;
   orchestrator?: OrchestratorId;
+  methodology?: MethodologyInfo;
+  degraded?: boolean;
+  degradationReason?: string;
 }
 
 export type ToolCallStatus = 'running' | 'success' | 'error' | 'halted';

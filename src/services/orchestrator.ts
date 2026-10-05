@@ -21,6 +21,12 @@ import {
   StepName,
   ToolCall,
   UnderwritingReport,
+  AgroRiskReport,
+  ComplianceReport,
+  DataCollectionSnapshot,
+  FinancialAnalysisReport,
+  OpinionReport,
+  MethodologyInfo,
 } from '../types';
 import {
   ALL_STEPS,
@@ -35,6 +41,11 @@ import {
   runGeoVerification,
   summarizeGeoReport,
 } from './geoVerificationService';
+import { runDataCollection } from './dataCollectionService';
+import { runComplianceAnalysis } from './complianceService';
+import { runAgroRiskAnalysis } from './agroRiskService';
+import { runFinancialAnalysis } from './financialAnalysisService';
+import { runOpinionConsolidation } from './opinionService';
 import { genAI } from './genai';
 import { PIPELINE_TOOLS } from './adkTools';
 import { checkRateLimit } from './rateLimiter';
@@ -57,6 +68,87 @@ export interface OrchestrationResult {
   toolCalls: ToolCall[];
   requiresApproval?: boolean;
   orchestrator: OrchestratorId;
+  methodology?: MethodologyInfo;
+  degraded?: boolean;
+  degradationReason?: string;
+}
+
+export function getMethodologyInfo(
+  id: OrchestratorId,
+  degraded?: boolean,
+  degradationReason?: string
+): MethodologyInfo {
+  if (id === 'adk') {
+    if (degraded) {
+      return {
+        id: 'adk',
+        name: 'ADK (Gemini) em Degradação Graciosa',
+        badge: 'Contingência Determinística Ativada',
+        description:
+          'O orquestrador ADK detectou indisponibilidade temporária de IA e acionou a contingência determinística automática. A análise de crédito e a conformidade regulatória continuam operando normalmente sem interrupção.',
+        isDegraded: true,
+        degradationReason:
+          degradationReason ||
+          'Chave de API não configurada ou instabilidade no serviço do Gemini. Operando em contingência determinística segura.',
+        aiModel: 'Fallback: Regras Estritas de Crédito',
+        activeFeatures: [
+          'Degradação graciosa automática ativa (Caso 2)',
+          'Regras de crédito 100% preservadas e auditáveis',
+          'Verificação territorial CAR/DETER/IBAMA ativa',
+          'Cálculo determinístico de CADS e DSCR',
+          'Portão de deliberação humana (HITL) garantido',
+        ],
+      };
+    }
+    return {
+      id: 'adk',
+      name: 'ADK Root Agent (Gemini 2.0 Flash)',
+      badge: 'IA com Tool-Calling Nativo',
+      description:
+        'Orquestrador autônomo com raciocínio multi-turn e tool-calling via Gemini 2.0 Flash. O modelo propõe dinamicamente a ordem dos agentes enquanto as regras de crédito fiscalizam a esteira.',
+      isDegraded: false,
+      aiModel: 'gemini-2.0-flash',
+      activeFeatures: [
+        'Planejamento de esteira via Gemini tool-calling',
+        'Raciocínio adaptativo com justificativas no trace',
+        'Travas bancárias de ordem (Order Enforcement)',
+        'Rate limiting e cache de respostas ativo',
+        'Portão de deliberação humana (HITL) obrigatório',
+      ],
+    };
+  }
+
+  if (id === 'adk-sim') {
+    return {
+      id: 'adk-sim',
+      name: 'ADK Simulado (Demonstração Didática)',
+      badge: 'Heurísticas Explicativas',
+      description:
+        'Simulador da arquitetura ADK projetado para demonstrações e testes. Executa a esteira determinística emitindo justificativas analíticas por etapa sem realizar chamadas a APIs externas.',
+      isDegraded: false,
+      activeFeatures: [
+        'Justificativas analíticas pré-computadas',
+        'Ordem determinística de 5 etapas',
+        'Re-verificação de evidências de reparo',
+        'Sem consumo de quota de IA',
+      ],
+    };
+  }
+
+  return {
+    id: 'deterministic',
+    name: 'Orquestração Determinística Estrita',
+    badge: 'Regras de Negócio Puras',
+    description:
+      'Execução estritamente sequencial orientada por políticas de crédito e regras regulatórias codificadas. Imutável, sem modelos estatísticos ou não-determinismo.',
+    isDegraded: false,
+    activeFeatures: [
+      'Sequência linear: Extração → Geo → Underwriting → Pricing → Decisão',
+      'Matemática pura de crédito (CADS/DSCR)',
+      'Sem latência de rede de IA',
+      'Auditabilidade regulatória padrão Bacen',
+    ],
+  };
 }
 
 interface PipelineData {
@@ -65,6 +157,11 @@ interface PipelineData {
   geoReport: GeoVerificationReport | null;
   underwriting: UnderwritingReport | null;
   pricing: PricingResult | null;
+  dataCollection?: DataCollectionSnapshot | null;
+  compliance?: ComplianceReport | null;
+  agroRisk?: AgroRiskReport | null;
+  financialAnalysis?: FinancialAnalysisReport | null;
+  opinion?: OpinionReport | null;
 }
 
 interface RunContext {
@@ -119,6 +216,11 @@ const DOCUMENT_STEP: AgentStep = {
       };
     }
 
+    // Agente de Coleta de Dados: Coleta bitemporal do SCR Bacen, Open Finance, Produção e Preços
+    const dc = runDataCollection(data.loanRequestId, data.application);
+    data.dataCollection = dc;
+    ProcessStateService.setSpecializedReports(data.loanRequestId, { data_collection: dc });
+
     return { kind: 'completed', payload: app };
   },
 };
@@ -131,6 +233,11 @@ const GEO_STEP: AgentStep = {
       new Date().toISOString(),
       defaultSource
     );
+
+    // Agente de Compliance: Checagens socioambientais, listas restritivas e políticas
+    const compliance = runComplianceAnalysis(data.loanRequestId, data.application, report);
+    data.compliance = compliance;
+    ProcessStateService.setSpecializedReports(data.loanRequestId, { compliance });
 
     if (report.overall_status !== 'BLOCKED') {
       return { kind: 'completed', payload: report };
@@ -149,6 +256,24 @@ const GEO_STEP: AgentStep = {
 const UNDERWRITING_STEP: AgentStep = {
   name: 'UnderwritingAgent',
   run(data) {
+    if (!data.dataCollection) {
+      data.dataCollection = runDataCollection(data.loanRequestId, data.application);
+      ProcessStateService.setSpecializedReports(data.loanRequestId, { data_collection: data.dataCollection });
+    }
+
+    // Agente de Análise de Risco Agro: Fatores climáticos, balanço hídrico, NDVI, sazonalidade e hedge
+    const agroRisk = runAgroRiskAnalysis(data.loanRequestId, data.application, data.dataCollection);
+    data.agroRisk = agroRisk;
+
+    // Agente de Análise Financeira: CADS, DSCR safra/entressafra, liquidez e alavancagem
+    const financial = runFinancialAnalysis(data.loanRequestId, data.application, data.dataCollection, agroRisk);
+    data.financialAnalysis = financial;
+
+    ProcessStateService.setSpecializedReports(data.loanRequestId, {
+      agro_risk: agroRisk,
+      financial_analysis: financial,
+    });
+
     return {
       kind: 'completed',
       payload: evaluateUnderwriting(
@@ -435,6 +560,40 @@ export abstract class PipelineOrchestrator {
       'completed',
       decision
     );
+
+    // Agente de Parecer: Consolidação de todos os relatórios em parecer executivo final
+    const appData = (state.steps.DocumentExtractionAgent.data as LoanApplicationData) || SAMPLE_APPLICATIONS[loanRequestId]?.data;
+    const pricingData = state.steps.PricingAgent.data as PricingResult;
+    const geoData = state.steps.GeoVerificationAgent.data as GeoVerificationReport | null;
+
+    const dc = state.specialized_reports?.data_collection || runDataCollection(loanRequestId, appData);
+    const comp = state.specialized_reports?.compliance || runComplianceAnalysis(loanRequestId, appData, geoData);
+    const agro = state.specialized_reports?.agro_risk || runAgroRiskAnalysis(loanRequestId, appData, dc);
+    const fin = state.specialized_reports?.financial_analysis || runFinancialAnalysis(loanRequestId, appData, dc, agro);
+
+    const opinion = runOpinionConsolidation(
+      loanRequestId,
+      appData,
+      dc,
+      comp,
+      agro,
+      fin,
+      pricingData,
+      {
+        status: 'APPROVED',
+        operator: 'Credit Committee Authority',
+        timestamp: new Date().toISOString(),
+      }
+    );
+
+    ProcessStateService.setSpecializedReports(loanRequestId, {
+      data_collection: dc,
+      compliance: comp,
+      agro_risk: agro,
+      financial_analysis: fin,
+      opinion,
+    });
+
     const approved = ProcessStateService.getProcessStatus(loanRequestId);
     if (approved) approved.overall_status = 'approved';
     const last = ctx.log[ctx.log.length - 1];
@@ -465,6 +624,30 @@ export abstract class PipelineOrchestrator {
         { decision: 'REJECTED' }
       );
       state.overall_status = 'rejected';
+
+      // Agente de Parecer: Registra parecer desfavorável
+      const appData = (state.steps.DocumentExtractionAgent.data as LoanApplicationData) || SAMPLE_APPLICATIONS[loanRequestId]?.data;
+      if (appData) {
+        const dc = state.specialized_reports?.data_collection || runDataCollection(loanRequestId, appData);
+        const comp = state.specialized_reports?.compliance || runComplianceAnalysis(loanRequestId, appData, state.steps.GeoVerificationAgent.data);
+        const agro = state.specialized_reports?.agro_risk || runAgroRiskAnalysis(loanRequestId, appData, dc);
+        const fin = state.specialized_reports?.financial_analysis || runFinancialAnalysis(loanRequestId, appData, dc, agro);
+        const opinion = runOpinionConsolidation(
+          loanRequestId,
+          appData,
+          dc,
+          comp,
+          agro,
+          fin,
+          state.steps.PricingAgent.data,
+          {
+            status: 'REJECTED',
+            operator: 'Credit Committee Authority',
+            timestamp: new Date().toISOString(),
+          }
+        );
+        ProcessStateService.setSpecializedReports(loanRequestId, { opinion });
+      }
     }
     return this.result(
       ctx,
@@ -571,18 +754,26 @@ export abstract class PipelineOrchestrator {
     const pipelineState = ProcessStateService.getProcessStatus(data.loanRequestId);
     if (pipelineState) pipelineState.overall_status = 'pending_approval';
 
-    return this.result(
+    const res = this.result(
       ctx,
       `${intro}${approvalQuestion(data)}\n\nDo you approve this loan? (yes/no)`,
       true
     );
+    if (res.methodology) {
+      ProcessStateService.setMethodology(data.loanRequestId, res.methodology);
+    }
+    return res;
   }
 
   protected result(
     ctx: RunContext,
     content: string,
-    requiresApproval?: boolean
+    requiresApproval?: boolean,
+    degraded?: boolean,
+    degradationReason?: string
   ): OrchestrationResult {
+    const methodology = getMethodologyInfo(this.id, degraded, degradationReason);
+
     const body =
       ctx.trace.length > 0
         ? `Decision trace (${this.label}):\n${ctx.trace
@@ -595,6 +786,9 @@ export abstract class PipelineOrchestrator {
       toolCalls: ctx.log,
       requiresApproval,
       orchestrator: this.id,
+      methodology,
+      degraded: Boolean(degraded),
+      degradationReason,
     };
   }
 }
@@ -742,6 +936,8 @@ export class RealAdkOrchestrator extends PipelineOrchestrator {
   private pendingToolCall: { name: string; args: any } | null = null;
   private stepsReportedToGemini = 0;
   private geminiUnavailable = false;
+  private isDegraded = false;
+  private degradationReason?: string;
 
   private async callGemini(method: string, params: any, loanRequestId?: string): Promise<any> {
     const cached = getCached<any>({ method, params });
@@ -761,9 +957,18 @@ export class RealAdkOrchestrator extends PipelineOrchestrator {
 
   protected async plan(loanRequestId: string, ctx: RunContext) {
     this.geminiUnavailable = false;
+    this.isDegraded = false;
+    this.degradationReason = undefined;
+
     if (!genAI) {
+      this.isDegraded = true;
+      this.degradationReason =
+        'GOOGLE_GENAI_API_KEY não configurada no ambiente. O sistema acionou a contingência determinística.';
       ctx.trace.push(
         `GOOGLE_GENAI_API_KEY not set; falling back to deterministic mode for ${loanRequestId}`
+      );
+      ctx.trace.push(
+        `[AVISO DE DEGRADAÇÃO GRACIOSA]: Contingência determinística ativa para ${loanRequestId} (API Key ausente)`
       );
       return;
     }
@@ -821,9 +1026,14 @@ export class RealAdkOrchestrator extends PipelineOrchestrator {
       });
     } catch (err: any) {
       this.geminiUnavailable = true;
+      this.isDegraded = true;
+      this.degradationReason = `Falha na chamada ao Gemini (${err.message}). O sistema acionou a contingência determinística.`;
       this.pendingToolCall = null;
       ctx.trace.push(
         `Gemini API error: ${err.message}; deterministic order for all steps`
+      );
+      ctx.trace.push(
+        `[AVISO DE DEGRADAÇÃO GRACIOSA]: Falha na API Gemini (${err.message}). Operando em contingência determinística segura.`
       );
     }
   }
@@ -853,8 +1063,13 @@ export class RealAdkOrchestrator extends PipelineOrchestrator {
       );
     } catch (err: any) {
       this.geminiUnavailable = true;
+      this.isDegraded = true;
+      this.degradationReason = `Falha na API Gemini durante a esteira (${err.message}). O sistema acionou a contingência determinística.`;
       ctx.trace.push(
         `Gemini error in multi-turn loop: ${err.message}; deterministic order from here on`
+      );
+      ctx.trace.push(
+        `[AVISO DE DEGRADAÇÃO GRACIOSA]: Falha no Gemini (${err.message}). Prosseguindo com regras determinísticas.`
       );
     }
 
@@ -962,7 +1177,10 @@ Respond with JSON: {"trust": true/false, "reason": "explanation"}`,
       return this.deterministicPreflight(data, completed, ctx);
     } catch (err: any) {
       this.geminiUnavailable = true;
+      this.isDegraded = true;
+      this.degradationReason = `Falha na API Gemini no preflight (${err.message}). Reavaliação realizada via regras determinísticas.`;
       ctx.trace.push(`Gemini preflight error: ${err.message}; falling back to deterministic`);
+      ctx.trace.push(`[AVISO DE DEGRADAÇÃO GRACIOSA]: Erro no preflight do Gemini (${err.message}). Rechecagem determinística realizada.`);
       return this.deterministicPreflight(data, completed, ctx);
     }
   }
@@ -1074,6 +1292,20 @@ Respond with JSON: {"trust": true/false, "reason": "explanation"}`,
       PricingAgent: 'run_pricing',
     };
     return mapping[stepName] || null;
+  }
+
+  protected override result(
+    ctx: RunContext,
+    content: string,
+    requiresApproval?: boolean
+  ): OrchestrationResult {
+    return super.result(
+      ctx,
+      content,
+      requiresApproval,
+      this.isDegraded,
+      this.degradationReason
+    );
   }
 }
 
