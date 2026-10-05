@@ -6,14 +6,14 @@ type: instructions
 example:
 id:
 status: Active
-version: 1.1.0
+version: 1.1.1
 author: Maíra Pontin
 ai_author: ai_made
 author_date: 2025-09-21
 reviewer:
 ai_reviewer:
 reviewer_date:
-updated: 2026-10-02T15:08:17
+updated: 2026-10-02T19:10:28
 file: AGENTS.md
 file_visibility: public
 source:
@@ -140,14 +140,20 @@ The UI is at `http://localhost:3123`. The API health check is at `http://localho
 
 ## Port Convention
 
-This project runs on **port 3123**. Always start it with `PORT=3123 npm run dev`.
+This project runs on **port 3123**. Start it with `PORT=3123 npm run dev`.
 
 Ports **3000, 3001 and 3002 are off-limits** — never bind this project to any of them. They belong
 to the Yatai Finance Platform (Docker) and to other local services, and occupying them breaks
 work happening in parallel elsewhere on the machine.
 
-`server.ts:57` still falls back to `3000` when `PORT` is unset, so the guard is the launch command,
-not the code. Never rely on the default.
+The `PORT` default in `server.ts` is `3123`, so a bare `npm run dev` no longer lands on a reserved
+port (fixed in `d7dd15d`). Passing `PORT=3123` explicitly stays the convention: the guard is visible
+in the launch command and survives any future change to the default. Re-check with
+`grep -n "process.env.PORT" server.ts`.
+
+The Express server hosts Vite in `middlewareMode` (`server.ts`, "Vite middleware setup"), so the UI
+and the API share port 3123. The `port: 3130` in `vite.config.ts` is inert on this path — it only
+applies if Vite is started standalone with `npx vite`.
 
 ## Key Files
 
