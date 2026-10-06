@@ -1,4 +1,27 @@
-# Pauta de decisões para o dono do produto
+---
+module: Yataí Finance
+description: Product decision agenda for the deterministic financial model and predictive extension
+category: documentation
+type: decision-agenda
+example:
+id:
+status: New
+version: 1.1.0
+author: Qoder
+ai_author: ai_made
+author_date: 2026-09-23T15:04:47
+reviewer:
+ai_reviewer:
+reviewer_date:
+updated: 2026-10-02T15:42:01
+file: backend/portal-api/src/predictive/docs/auditoria/pauta_decisoes_produto.md
+file_visibility: public
+source: Imported product agenda and product-owner clarification on 2026-09-23
+---
+
+# Financial Modelling Product Decision Agenda
+
+**Clarification update, 2026-09-23:** the modelling content in `docs/financial_model/` is the application's deterministic financial and credit-analysis foundation. The [workbook clarification register](logica_planilhas.md#product-owner-clarifications-2026-09-23) is the current source for supplied answers; the original questions below remain historical context where superseded. Outstanding policy adoption and governance are tracked in [the policy register](../pendencias_politica.md).
 
 **Objeto:** transformação das planilhas do mesmo produtor em regras de uma plataforma de crédito agro.
 
@@ -26,7 +49,7 @@ Portanto, o ponto não é afirmar que o gerente decidiu fora do Excel. O ponto �
 | Override | Houve decisão diferente do modelo? Qual motivo e aprovador? |
 | Estado atual | A proposta está em análise, condicionada, aprovada, contratada, desembolsada ou encerrada? |
 
-**Inferência:** “avança condicionado” parece ser a recomendação operacional do analista para continuar a análise, e não necessariamente a aprovação final da operação. Essa interpretação precisa ser confirmada.
+**Provided clarification, 2026-09-23:** "proceed conditionally" permits further analysis while requirements remain outstanding; it is neither credit approval nor authorization to disburse. The official statuses, authorized approvers and final-decision record still need definition.
 
 A plataforma deveria separar quatro registros: `model_recommendation`, `analyst_recommendation`, `credit_authority_decision` e `current_workflow_status`. Cada registro deve guardar usuário, data/hora, versão dos dados/modelo/política, limite, condições e justificativa.
 
@@ -85,7 +108,7 @@ Juros, principal de dívida, capex, variação de capital de giro e distribuiç�
 
 | Pergunta ao dono do produto | Contexto observado | Por que a decisão é necessária |
 |---|---|---|
-| Qual das três versões é a fonte oficial atual? | Foi confirmado que os arquivos tratam do mesmo produtor; as versões têm 19, 39 e 69 folhas. | Evita implementar fórmula antiga ou camada de QA como se fosse regra ativa. |
+| Qual das três versões é a fonte oficial atual? | **Resolvido 2026-10-01:** nenhuma das planilhas em disco é a baseline da plataforma — um novo modelo será autorizado como fonte única. A substituição é apenas por citação (tracked in #222). | Evita implementar fórmula antiga ou camada de QA como se fosse regra ativa. |
 | As abas duplicadas são histórico, alternativas ou tentativas descartadas? | `financial_model.xlsx` contém vários sufixos `_1`, `_2`, `_3` e abas AI. | Define o que deve ser migrado, arquivado ou ignorado. |
 | Quem pode alterar premissas e fórmulas? | A planilha não possui registro transacional de alteração por usuário. | Permite segregação entre Produto, Crédito, Risco, Jurídico e Tecnologia. |
 | Toda mudança precisa de teste e aprovação? | Há folhas de QA, mas não foi observada uma política formal de promoção. | Evita mudança silenciosa de cutoff, haircut ou fórmula. |
@@ -138,7 +161,7 @@ Juros, principal de dívida, capex, variação de capital de giro e distribuiç�
 | Pergunta ao dono do produto | Contexto observado | Consequência da resposta |
 |---|---|---|
 | Quais são os estados do workflow? | `Preliminary decision` está sem valor; existe texto “avança condicionado”. | Define originação, análise, comitê, contratação, desembolso e monitoramento. |
-| Quais gates numéricos são mandatórios? | O modelo cita DSCR, alavancagem, liquidez e CPR, sem cutoffs explícitos. | Evita inventar limites e permite backtesting. |
+| Which numeric gates are official and mandatory? | The 2026-09-23 clarification supplies workbook parameters and scenario-specific tests; see the workbook register. | Their existence in the reported model does not establish policy approval, exceptions or enforcement. |
 | Gate é bloqueio absoluto, condição ou fator de preço? | A consequência não está parametrizada. | Define motor de regras e política comercial. |
 | Quem tem alçada para override? | Não há trilha observada de override. | Garante responsabilização e monitoramento de exceções. |
 | Como registrar limite, prazo, preço, garantia e covenants aprovados? | O readout não contém registro completo da decisão. | Cria o contrato decisório reproduzível. |

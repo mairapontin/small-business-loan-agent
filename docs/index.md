@@ -1,4 +1,33 @@
-# Modelagem Preditiva de Crédito Agro
+---
+module: Yataí Finance
+description: Financial modelling foundation and predictive extension entry point
+category: documentation
+type: index
+example:
+id:
+status: New
+version: 1.1.0
+author: Qoder
+ai_author: ai_made
+author_date: 2026-09-23T15:04:47
+reviewer:
+ai_reviewer:
+reviewer_date:
+updated: 2026-10-02T15:42:01
+file: backend/portal-api/src/predictive/docs/index.md
+file_visibility: public
+source: Imported modelling specification and product-owner clarification on 2026-09-23
+---
+
+# Deterministic Financial Analysis and Predictive Credit Modelling
+
+## Financial foundation
+
+**Product-owner clarification, 2026-09-23:** the Excel workbooks in `docs/financial_model/` are the heart of the application's financial and credit analysis: the **deterministic part of client analysis**. The `predictive/` package belongs to the same financial modelling domain; its directory name does not make its arithmetic, scenarios or temporal data selection statistical predictions.
+
+The [workbook evidence and clarification register](auditoria/logica_planilhas.md) identifies the files, current formula semantics, reported gate parameters and unresolved authority. The [modelling architecture](arquitetura_modelagem.md) connects this baseline to detailed cash flows, exposure analysis and future predictive capabilities. Deterministic calculations remain reproducible from the same inputs, assumptions and formula version, including when their inputs are estimates. Statistical predictions require their own data, calibration and validation; neither layer replaces the human credit decision.
+
+The original workbooks remain local, unversioned evidence containing personal data, not an automatic runtime data source or a trained-model dataset. **Product-owner decision, 2026-10-01:** none of the workbooks on disk is the platform baseline — a new model will be authored as the single authoritative source. Reported workbook thresholds are not automatically official credit policy.
 
 Pacote de especificação e governança para a modelagem preditiva de crédito agro, com data-base **3 de setembro de 2026**. Foco inicial em soja no Mato Grosso, com arquitetura expansível.
 
@@ -15,9 +44,10 @@ Pacote de especificação e governança para a modelagem preditiva de crédito a
 | [Modelo de ativos e tecnologia](modelo_ativos_tecnologia.md) | Inventário por classe, campos mínimos do ativo, depreciação econômica, capex de reposição e custo all-in do crédito |
 | [Pendências de política](pendencias_politica.md) | Índice consolidado dos 40 itens `PENDING_POLICY` e a segunda tag `PENDING_PRODUCT_DECISION` |
 | [Auditoria](auditoria/logica_planilhas.md) | Lógica reconstruída das planilhas, inventário técnico folha a folha, observações e inferências, pauta de decisões de produto |
+| [Análise e melhorias do pacote portado](auditoria/analise_e_melhorias_20260922.md) | Revisão do código `predictive/` com `arquivo:linha`, lacunas desta documentação e do relatório de pesquisa de fontes abertas, mudanças já aplicadas e as que aguardam decisão |
 | [Revisões](revisoes/00_metodologia.md) | As cinco revisões do pacote de origem, a metodologia e o aceite por testes automatizados |
 | Contratos de dados | Catálogo de features, matriz de fontes, matriz causal, dicionário de ativos e templates — tabela abaixo |
-| [Fontes de pesquisa](fontes/fontes_dados.md) | Catálogo de fontes por domínio, com URLs e limitações |
+| [Fontes de pesquisa](fontes/fontes_dados.md) | Catálogo de fontes por domínio, com URLs, limitações e a rota de acesso por API checada em 5 de outubro de 2026 |
 
 ## Contratos de dados
 
@@ -33,20 +63,20 @@ Pacote de especificação e governança para a modelagem preditiva de crédito a
 
 ## Cálculos portados para o backend
 
-Os cálculos portados vivem no backend, em `services/portal-api/src/yatai_api/predictive/`:
+Os cálculos portados vivem no backend, em `backend/portal-api/src/predictive/`:
 
 | Módulo | Conteúdo |
 |---|---|
 | `domain/credit_math.py` | Depreciação econômica, capex de reposição, caixa disponível para serviço da dívida, DSCR, shortfall de liquidez de margem, overhead normalizado, XNPV e taxa efetiva anual all-in por bisseção |
 | `domain/point_in_time.py` | Seleção point-in-time do registro vigente e legitimamente disponível no corte da decisão |
 
-Ambos usam `Decimal`, não `float` — a precisão é requisito de auditoria, não preferência de estilo. Nenhum dos dois aplica corte de decisão: os thresholds não existem (ver [pendências](pendencias_politica.md)).
+The financial calculations use `Decimal`, and point-in-time selection preserves the information available at the decision cutoff. Neither module applies a credit-decision cutoff. The [workbook clarification register](auditoria/logica_planilhas.md) records reported model thresholds; their adoption as official policy remains pending (see [policy decisions](pendencias_politica.md)).
 
 Além dos dois módulos de referência, o mesmo pacote tem a camada temporal especificada neste pacote: `temporal/` (carimbos de tempo, observação, portas, resolução, confiança, snapshot e feature store) e `adapters/memory_store.py`. O event store, o motor de decisão e os registros de decisão continuam especificação — não código.
 
 O split em `services/` + `libs/shared/` ainda está em andamento: `domain/` e `temporal/` têm como destino `libs/shared/`, para ser uma biblioteca compartilhada e não duas cópias que divergem no corte point-in-time. Os caminhos acima são os vigentes, não o desenho final.
 
-A suíte de integridade estrutural do pacote de origem também foi portada, em `services/portal-api/tests/predictive/test_docs_integrity.py`: ela verifica a existência dos documentos, o fechamento das referências numéricas, o esquema dos CSVs de contrato, as dimensões dos diagramas e a presença das tags de pendência. O gerador da folha de contato dos diagramas está em `services/portal-api/src/yatai_api/predictive/scripts/make_contact_sheet.py`.
+A suíte de integridade estrutural do pacote de origem também foi portada, em `backend/portal-api/tests/predictive/test_docs_integrity.py`: ela verifica a existência dos documentos, o fechamento das referências numéricas, o esquema dos CSVs de contrato, as dimensões dos diagramas e a presença das tags de pendência. O gerador da folha de contato dos diagramas está em `backend/portal-api/src/predictive/scripts/make_contact_sheet.py`.
 
 ## Princípios que atravessam todo o pacote
 
@@ -64,7 +94,7 @@ A suíte de integridade estrutural do pacote de origem também foi portada, em `
 
 Todo o conteúdo do pacote de origem está integrado: documentação, contratos de dados, os 11 diagramas em SVG e em PNG de alta resolução, as cinco revisões do projeto com suas evidências, o inventário técnico das planilhas, os dois módulos de cálculo com testes e a suíte de integridade estrutural.
 
-Isso inclui o que antes estava fora de escopo — o event store e a feature store temporal, os quatro registros de decisão, o motor de decisão e seus gates. **Integrado aqui significa especificação, não implementação em execução.** A persistência atual da plataforma é JSON com file lock, sobre a qual reprodutibilidade point-in-time não é implementável; a especificação define o contrato temporal que uma decisão de arquitetura de persistência precisa atender. O motor de decisão e os gates chegam com os thresholds ausentes e marcados: cada item viaja **com a tag** `PENDING_POLICY` ou `PENDING_PRODUCT_DECISION`, e nenhum foi convertido em número "típico" de mercado.
+This includes the event-store and temporal-feature-store specifications, the separate decision records, and the decision engine and gates. **Integration of the source package does not mean an end-to-end runtime implementation.** The financial router still serves an in-memory example; it does not ingest the workbooks or invoke the deterministic calculations as a complete credit engine. Event-store persistence and authority decisions remain specification work. Reported workbook gate values are documented in the audit register, while official adoption remains `PENDING_POLICY` or `PENDING_PRODUCT_DECISION`; no missing policy is replaced by a supposedly typical market number.
 
 **Única exclusão:** os três arquivos `.xlsx` de origem. Eles contêm dados pessoais de um produtor real e não são versionados. Toda a lógica que deles foi extraída está reconstruída em [auditoria](auditoria/logica_planilhas.md) e [inventário técnico](auditoria/inventario_tecnico.md), com o produtor referido como `PRODUTOR_EXEMPLO` e os valores nominais do caso omitidos.
 

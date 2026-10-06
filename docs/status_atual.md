@@ -42,7 +42,7 @@ Os cálculos incluídos servem como referência e teste. Eles não substituem va
 
 No pacote de origem, a suíte rodava com `PYTHONPATH=testes python3 -m pytest -q testes` e registrou **35 testes aprovados**. As evidências JUnit, cobertura e validação estrutural estão em [`revisoes/evidencias/`](revisoes/evidencias/SHA256SUMS_pacote_origem.txt).
 
-No repositório, os cálculos portados e o teste de integridade documental rodam a partir de `services/portal-api/`, no escopo `yatai_api/predictive/`:
+No repositório, os cálculos portados e o teste de integridade documental rodam a partir de `backend/portal-api/`, no escopo `yatai_api/predictive/`:
 
 ```bash
 pytest tests/predictive

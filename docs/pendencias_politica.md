@@ -1,6 +1,29 @@
-# Pendências de política (`PENDING_POLICY`)
+---
+module: Yataí Finance
+description: Financial and predictive modelling policy decisions and clarification status
+category: documentation
+type: policy-register
+example:
+id:
+status: New
+version: 1.1.0
+author: Qoder
+ai_author: ai_made
+author_date: 2026-09-23T15:04:47
+reviewer:
+ai_reviewer:
+reviewer_date:
+updated: 2026-10-02T15:42:01
+file: backend/portal-api/src/predictive/docs/pendencias_politica.md
+file_visibility: public
+source: Existing policy register and product-owner clarification on 2026-09-23
+---
 
-Índice consolidado de todas as decisões que o dono do produto precisa tomar antes que a modelagem preditiva de crédito agro possa virar regra automática da plataforma.
+# Financial and Predictive Modelling Policy Register (`PENDING_POLICY`)
+
+This register tracks decisions required before the deterministic financial baseline and its predictive extension become automatic platform rules. The 40 topic identifiers remain stable; they are not a count of wholly unanswered questions.
+
+**Clarification update, 2026-09-23:** [the workbook register](auditoria/logica_planilhas.md#product-owner-clarifications-2026-09-23) records the supplied answers and remaining decisions. Agricultural revenue meaning and the case-specific nature of the prepay are clarified; debt-service and co-obligation treatment have a stated modelling direction. Reported numeric workbook gates exist, but adoption as official policy remains pending. These statements are attributed clarifications, not a new workbook audit or approval of production rules.
 
 **Regra de ouro:** enquanto um item desta lista estiver aberto, o sistema exibe a tag `PENDING_POLICY` e apresenta intervalos ou cenários. **Não são inseridos números "típicos" de mercado como se fossem política vigente.** Isso decorre da regra de não-alucinação do `agents.md` (§2): se faltar dado, reporte a ausência.
 
@@ -12,9 +35,9 @@ Origem: §17 do [Plano de trabalho](plano_trabalho.md), §3.4 (gates de Definiti
 
 | # | Tema | Decisão pendente | Consequência técnica |
 |---|---|---|---|
-| 1 | Versão mestre | Qual dos três arquivos é autoritativo? Se nenhum, qual artefato tem cada função? | Linhagem, QA e comparação correta |
-| 2 | Produto-alvo | O prepay em moeda estrangeira com CPR física é específico do caso ou produto-padrão? | Escopo, moeda, cultura, garantia e rótulo |
-| 3 | `net_sales` | Receita agrícola aceita, receita após descontos ou receita contábil líquida? | Fórmula de margem e comparabilidade |
+| 1 | Master workbook | **Resolved 2026-10-01:** none of the workbooks on disk is the platform baseline — a new model will be authored as the single authoritative source. Supersession is citation-only. | Tracked in #222. The existing files remain local evidence until the audit register is re-derived from the new model. |
+| 2 | Target product | Clarified as case-specific prepay, not a fixed product standard. Confirm reusable product parameters and crop-date consistency. | Amount, tenor, crop, volume and guarantees must not become universal constants. |
+| 3 | `net_sales` | Clarified as estimated agricultural revenue using the lower producer/regional projection. Formal schema naming and accounting reconciliation remain separate work. | Do not present the value as accounting revenue net of taxes, returns or commercial discounts. |
 | 4 | Overhead | Quando usar o proxy de 30%; quais contas o substituem; quais itens evitar duplicar? | Geração de caixa e reason code |
 | 5 | Rótulo (label) | O que é default e qual janela? Como tratar renegociação e recuperação judicial? | Treino, validação e métricas |
 | 6 | Retiradas familiares | O que é retirada normalizada e o que é despesa operacional? | Caixa disponível |
@@ -25,9 +48,9 @@ Origem: §17 do [Plano de trabalho](plano_trabalho.md), §3.4 (gates de Definiti
 
 | # | Tema | Decisão pendente | Consequência técnica |
 |---|---|---|---|
-| 9 | Gates | Limites de DSCR, alavancagem, liquidez, cobertura de CPR e exceções | Política configurável — **não inventar thresholds** |
-| 10 | Serviço da dívida | Incluir cronograma completo, barter, fornecedores, arrendamentos e derivativos? | Caixa e capacidade reais |
-| 11 | Coobrigações | Tratamento econômico: integral, ponderado, cenário ou alerta? | Dívida consolidada e EAD |
+| 9 | Gates | Validate the reported workbook parameters and scenario-specific tests as official policy; define exceptions and consequences. | The values are recorded in the workbook register, not silently promoted to production cutoffs — `PENDING_POLICY`. |
+| 10 | Debt service | Retain the current proxy for comparison; develop the full maturity schedule with cash/physical separation and no duplicated operating costs. | Clarified modelling direction; detailed implementation and policy approval remain separate work. Contingent calls are shown separately. |
+| 11 | Co-obligations | Separate from direct debt; identify parties and obligation; assess a deduplicated full-call scenario. | Clarified modelling direction; no probability weighting without a defined methodology. |
 | 12 | Patrimônio | Quais ativos, haircuts, gravames e regimes são elegíveis? | LGD e limite |
 | 13 | Tolerância de reconciliação | Qual divergência é aceitável entre SCR, contratos e ERP? | Gate de reconciliação financeira |
 
@@ -35,7 +58,7 @@ Os itens 32 a 40 abaixo pertencem à mesma seção temática — todos são cort
 numeração global. Ela aparece fora de ordem sequencial de propósito: **o número é identificador estável, não
 posição**. Renumerar para restabelecer a sequência quebraria as referências feitas a estes itens.
 
-Eles vêm da especificação do motor de risco agro (`docs/documentation/data_sources_agro.pt.md`), que fixou
+Eles vêm da especificação do motor de risco agro (`docs/documentation/data-sources-agro.pt.md`), que fixou
 valores sem origem. Dois deles já existem no código como constante — marcados com ◆ — e os demais
 dependem de uma fonte que **não está integrada**, listado na última coluna.
 
@@ -55,8 +78,8 @@ dependem de uma fonte que **não está integrada**, listado na última coluna.
 
 | # | Tema | Decisão pendente | Consequência técnica |
 |---|---|---|---|
-| 14 | Grupo PF/PJ | Critérios de controle, consolidação, disponibilidade e documentação | Grafo e regra de diligência |
-| 15 | Parecer final | Qual registro é mestre; quais status e alçadas? | Workflow, override e auditoria |
+| 14 | Economic group | Clarified objective: establish beneficial ownership, control, flows, obligations and legally available guarantees. Detailed eligibility evidence remains to be specified. | Neither family ownership nor a fragmented formal structure implies tax irregularity or makes relatives' assets available. |
+| 15 | Final decision | Which record is authoritative, and which official statuses and approval authorities apply? | Conditional advancement means continued analysis, not credit approval or permission to disburse. |
 | 16 | Override | Motivos, aprovadores, validade e monitoramento | Aprendizagem e risco de modelo |
 | 17 | Gestão | Pilares de equipe e tecnologia entram como veto, subscore, overlay ou reason code? | Governança e necessidade de amostra |
 | 18 | Novelty | Quem aplica overlay, por quanto tempo e como encerra? | Governança de risco emergente |
@@ -93,9 +116,9 @@ dependem de uma fonte que **não está integrada**, listado na última coluna.
 
 ## Efeito no código portado
 
-Os módulos já portados — `services/portal-api/src/yatai_api/predictive/domain/credit_math.py` e `services/portal-api/src/yatai_api/predictive/domain/point_in_time.py` — calculam indicadores mas **não aplicam nenhum corte de decisão**. Isso é deliberado: os thresholds dos itens 9 a 13 não existem. Qualquer motor de decisão que consuma esses cálculos deve retornar `PENDING_POLICY` no lugar do veredito até que o item correspondente seja aprovado.
+The ported modules — `backend/portal-api/src/predictive/domain/credit_math.py` and `backend/portal-api/src/predictive/domain/point_in_time.py` — provide deterministic financial calculations and point-in-time selection, respectively; neither applies a credit-decision cutoff. Reported workbook thresholds are now documented, but their existence is not official policy approval. A decision engine consuming these calculations must preserve `PENDING_POLICY` instead of issuing a verdict based on an unapproved rule.
 
-Nos cortes agro (itens 32 a 40) a situação é pior e por isso registrada aqui: dois valores ◆ já existem no código como constante e **nunca foram aprovados** — o multiplicador de janela de plantio ZARC (`risk_multiplier = 1.3` em `services/portal-api/src/yatai_api/routers/risk_engine.py`) e o proxy de subdeclaração de custo. Não é um cálculo portado que os aplicou: é a especificação do motor de risco agro que virou número fixo antes de qualquer decisão de produto.
+Nos cortes agro (itens 32 a 40) a situação é pior e por isso registrada aqui: dois valores ◆ já existem no código como constante e **nunca foram aprovados** — o multiplicador de janela de plantio ZARC (`risk_multiplier = 1.3` em `backend/portal-api/src/routers/risk_engine.py`) e o proxy de subdeclaração de custo. Não é um cálculo portado que os aplicou: é a especificação do motor de risco agro que virou número fixo antes de qualquer decisão de produto.
 
 ---
 
