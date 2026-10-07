@@ -77,7 +77,7 @@ The risk math, eligibility thresholds and BLOCK rules remain outside LLM reach r
 | LLM reasoning (`adk` driver) | **Real** — Gemini tool-calling when `GOOGLE_GENAI_API_KEY` is set; `adk-sim` still uses hardcoded rationales |
 | ADK tool-calling | **Implemented** — multi-turn loop: `plan()` gets first tool-call, `nextStep()` sends results back and gets subsequent calls |
 | Order enforcement over LLM picks | **Real** — `prerequisitesMet()` refuses a Gemini pick that breaks pipeline order; covered by offline regression tests |
-| Test suite | **Real** — `npm test` runs 24 offline tests (`tests/orchestrator.test.ts`, `tests/adk_doubles.test.ts`, `tests/approval_guards.test.ts`); Gemini is replaced by in-process doubles and `fetch` is disabled, so no test touches the network |
+| Test suite | **Real** — `npm test` runs 34 offline tests (`tests/orchestrator.test.ts`, `tests/adk_doubles.test.ts`, `tests/approval_guards.test.ts`, `tests/pdf_report.test.ts`, `tests/specialized_agents.test.ts`); Gemini is replaced by in-process doubles and `fetch` is disabled, so no test touches the network |
 | API key / environment config | **Configured** — `.env.example` template, `.gitignore` excludes `.env` and `.qoder/*` (with `!.qoder/plans/` so plans stay versioned), health endpoint reports status |
 | Persistence (Firestore, database) | **Not implemented** — in-memory only |
 | UI toggle for `adk` mode | **Implemented** — Phase 4 complete, all three drivers selectable in UI |
@@ -89,7 +89,7 @@ The risk math, eligibility thresholds and BLOCK rules remain outside LLM reach r
 - Geo-verification blocking and repair flow (operator uploads evidence, system re-verifies)
 - Human approval/rejection gate
 - Three orchestrator drivers (deterministic, adk-sim, adk) — all three selectable in the UI and via API
-- 24 offline regression tests (`npm test`) covering driver parity, blocking, repair, the Phase 5 defect fixes and the approval-gate guards
+- 34 offline regression tests (`npm test`) covering driver parity, blocking, repair, the Phase 5 defect fixes and the approval-gate guards
 - Real Gemini tool-calling when `GOOGLE_GENAI_API_KEY` is set
 - Graceful degradation to deterministic when API key is missing or Gemini call fails
 - Process state inspection and repair console
@@ -125,7 +125,7 @@ PORT=3123 npm run dev
 # Type-check
 npm run lint
 
-# Run the offline test suite (24 tests, no network)
+# Run the offline test suite (34 tests, no network)
 npm test
 
 # Production build + run
@@ -142,8 +142,14 @@ Ports **3000, 3001 and 3002 are off-limits** — never bind this project to any 
 to the Yatai Finance Platform (Docker) and to other local services, and occupying them breaks
 work happening in parallel elsewhere on the machine.
 
-`server.ts:57` still falls back to `3000` when `PORT` is unset, so the guard is the launch command,
-not the code. Never rely on the default.
+The `PORT` default in `server.ts` is `3123`, so a bare `npm run dev` no longer lands on a reserved
+port (fixed in `d7dd15d`). Passing `PORT=3123` explicitly stays the convention: the guard is visible
+in the launch command and survives any future change to the default. Re-check with
+`grep -n "process.env.PORT" server.ts`.
+
+The Express server hosts Vite in `middlewareMode` (`server.ts`, "Vite middleware setup"), so the UI
+and the API share port 3123. The `port: 3130` in `vite.config.ts` is inert on this path — it only
+applies if Vite is started standalone with `npx vite`.
 
 ## Key Files
 

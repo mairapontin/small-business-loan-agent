@@ -137,15 +137,15 @@ const genAI = GOOGLE_GENAI_API_KEY ? new GoogleGenAI({ apiKey: GOOGLE_GENAI_API_
 # Get yours at https://makersuite.google.com/app/apikey
 GOOGLE_GENAI_API_KEY=your_api_key_here
 
-# Server port (default: 3000)
-PORT=3000
+# Server port (default: 3123)
+PORT=3123
 ```
 
 **File:** `.env` (add to `.gitignore`)
 
 ```bash
 GOOGLE_GENAI_API_KEY=...
-PORT=3000
+PORT=3123
 ```
 
 **File:** `.gitignore`
